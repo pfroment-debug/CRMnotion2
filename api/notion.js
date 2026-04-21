@@ -83,14 +83,15 @@ function buildNotionProps(data, schema) {
 }
 
 export default async function handler(req, res) {
-  const { action, token } = req.query;
+  const { action, token, dbid } = req.query;
 
-  // ── TEST: accepte le token en query param pour debug ──
+  // ── TEST: token en query param + dbid personnalisable ──
   if (action === 'test') {
     const t = token || TOKEN() || '';
-    if (!t) return res.json({ error: 'Aucun token fourni. Ajoutez ?token=ntn_xxx ou configurez NOTION_TOKEN' });
+    const testDb = dbid || '343dfc12-15cc-80d8-bca4-f624826c626c';
+    if (!t) return res.json({ error: 'Aucun token. Ajoutez ?token=ntn_xxx' });
     try {
-      const r = await fetch(NOTION + '/databases/343dfc12-15cc-806c-aec4-000b4089c60b', {
+      const r = await fetch(NOTION + '/databases/' + testDb, {
         headers: { 'Authorization': 'Bearer ' + t, 'Notion-Version': '2022-06-28' }
       });
       const d = await r.json();
@@ -99,6 +100,7 @@ export default async function handler(req, res) {
         ok: r.ok,
         tokenStart: t.slice(0, 8),
         tokenLength: t.length,
+        testedDbId: testDb,
         dbTitle: d.title?.[0]?.plain_text || null,
         error: d.message || null
       });
