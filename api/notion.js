@@ -1,4 +1,4 @@
-// api/notion.js — Proxy direct vers l'API Notion (remplace Anthropic MCP)
+// api/notion.js — Proxy direct vers l'API Notion
 const NOTION = 'https://api.notion.com/v1';
 const TOKEN = () => process.env.NOTION_TOKEN;
 const HDR = () => ({ 'Authorization': `Bearer ${TOKEN()}`, 'Content-Type': 'application/json', 'Notion-Version': '2022-06-28' });
@@ -52,28 +52,23 @@ function buildNotionProps(data, schema) {
   const props = {};
   for (const [key, val] of Object.entries(data)) {
     if (val === undefined || val === null || val === '') continue;
-    // Date expanded fields
     if (key.startsWith('date:') && key.endsWith(':start')) {
       const name = key.replace('date:', '').replace(':start', '');
       props[name] = { date: { start: val } };
       continue;
     }
     if (key.startsWith('date:') && (key.endsWith(':end') || key.endsWith(':is_datetime'))) continue;
-    // Place fields (skip for now)
     if (key.startsWith('place:')) continue;
-    // Person fields
     if (key.startsWith('person:')) {
       const name = key.replace('person:', '');
       if (val) props[name] = { people: [{ id: val }] };
       continue;
     }
-    // userDefined: prefix
     if (key.startsWith('userDefined:')) {
       const name = key.replace('userDefined:', '');
       props[name] = { url: String(val) };
       continue;
     }
-    // Schema-aware
     const s = schema?.[key];
     if (!s) continue;
     if (s.type === 'title') props[key] = { title: [{ text: { content: String(val) } }] };
@@ -103,9 +98,15 @@ function buildNotionProps(data, schema) {
 }
 
 export default async function handler(req, res) {
-  if (!TOKEN()) return res.status(500).json({ error: 'NOTION_TOKEN non configuré' });
-
   const { action } = req.query;
+
+  // ── TEST (debug) ──
+  if (action === 'test') {
+    const t = TOKEN() || '';
+    return res.json({ tokenLength: t.length, start: t.slice(0, 8), end: t.slice(-4), exists: !!t });
+  }
+
+  if (!TOKEN()) return res.status(500).json({ error: 'NOTION_TOKEN non configuré' });
 
   try {
     // ── QUERY DATABASE ──
@@ -113,7 +114,6 @@ export default async function handler(req, res) {
       const { database_id, page_size = 100 } = req.body;
       let all = [];
       let cursor = undefined;
-      // Paginate through all results
       do {
         const body = { page_size: Math.min(page_size, 100) };
         if (cursor) body.start_cursor = cursor;
