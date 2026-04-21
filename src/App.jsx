@@ -821,12 +821,10 @@ export default function App(){
   const wait=(ms)=>new Promise(r=>setTimeout(r,ms));
   const loadData=useCallback(async()=>{
     setLoading(true);
-    const updated=[];
-    for(const db of CFG){
-      for(let a=0;a<3;a++){try{const data=await queryDb(db.dsId);updated.push({...db,data});break}catch(e){if(a<2){await wait(1000*(a+1));continue}updated.push({...db,data:[]});break}}
-      await wait(200);
-    }
-    setDbs(updated);setLoading(false);
+    const results=await Promise.all(CFG.map(async(db)=>{
+      for(let a=0;a<3;a++){try{const data=await queryDb(db.dsId);return{...db,data}}catch(e){if(a<2){await wait(500*(a+1));continue}return{...db,data:[]}}}
+    }));
+    setDbs(results);setLoading(false);
   },[]);
   useEffect(()=>{loadData()},[loadData]);
 
