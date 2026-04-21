@@ -21,15 +21,23 @@ const CFG=[
   {name:"Risques & Alertes 2026",dsId:"c49aaa84-043e-4e84-9a46-1a3cef2ba656",dsUrl:"collection://c49aaa84-043e-4e84-9a46-1a3cef2ba656",viewUrl:"view://726d5809-1663-4626-96a2-117aeed332df",titleProp:"Nom",schema:{"Nom":{type:"title"},"Type d'alerte":{type:"select",options:[{name:"Refus agrément CIR"},{name:"Refus agrément CII"},{name:"Refus agrément CICo"},{name:"Avis défavorable expert"},{name:"Contrôle fiscal"},{name:"Litige DGFiP"},{name:"JEI expirée"},{name:"Dépôt tardif"},{name:"Rescrit défavorable"},{name:"Autre"}]},"Sévérité":{type:"select",options:[{name:"Critique"},{name:"Attention"},{name:"Info"}]},"Statut":{type:"select",options:[{name:"À traiter"},{name:"En cours"},{name:"Résolu"},{name:"Classé sans suite"}]},"Actions à mener":{type:"text"},"Date événement":{type:"date"},"Date limite action":{type:"date"},"Montant exposé (€)":{type:"number"},"Société 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-806c-aec4-000b4089c60b"},"Dossiers 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-8066-9ea0-000b00130dd3"},"Documents 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-80e7-a558-000b92a6fff3"},"Projets 2026":{type:"relation",dataSourceUrl:"collection://346dfc12-15cc-8070-8f8e-000bba2683fe"}}},
 ];
 
-/* ══ API ══ */
-const MCP={type:"url",url:"https://mcp.notion.com/mcp",name:"notion"};
-const SYS="You are a Notion API bot. Call the requested tool with EXACT parameters. No commentary.";
-async function apiCall(p){const r=await fetch("/api/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:8000,system:SYS,messages:[{role:"user",content:p}],mcp_servers:[MCP]})});if(!r.ok)throw new Error("HTTP "+r.status);return r.json()}
-function mcpR(d){for(const b of d?.content||[])if(b.type==="mcp_tool_result"&&b.content?.[0]?.text){try{return JSON.parse(b.content[0].text)}catch{return b.content[0].text}}return null}
-async function qv(v){const d=await apiCall('Call notion-query-database-view with view_url="'+v+'"');const r=mcpR(d);return r?.results||[]}
-async function cp(ds,props){const p=JSON.stringify(props);const d=await apiCall('Call notion-create-pages with:\nparent: {"data_source_id":"'+ds+'"}\npages: [{"properties":'+p+"}]");const r=mcpR(d);if(r?.pages?.length)return r.pages[0];throw new Error("Create failed")}
-async function up(url,props){const pid=url.split("/").pop().replace(/-/g,"");const p=JSON.stringify(props);await apiCall('Call notion-update-page with:\npage_id:"'+pid+'"\ncommand:"update_properties"\nproperties:'+p+"\ncontent_updates:[]")}
-async function rp(url){const pid=url.split("/").pop().replace(/-/g,"");await apiCall('Call notion-move-pages with:\nnew_parent:{"type":"workspace"}\npage_or_database_ids:["'+pid+'"]')}
+/* ══ API (direct Notion) ══ */
+async function queryDb(dbId){
+  const r=await fetch("/api/notion?action=query",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({database_id:dbId})});
+  if(!r.ok)throw new Error("HTTP "+r.status);const d=await r.json();return d.results||[];
+}
+async function createPage(dbId,props,schema){
+  const r=await fetch("/api/notion?action=create",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({database_id:dbId,properties:props,schema})});
+  if(!r.ok){const e=await r.json();throw new Error(e?.message||"Create failed")}return(await r.json()).page;
+}
+async function updatePage(pageId,props,schema){
+  const r=await fetch("/api/notion?action=update",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({page_id:pageId,properties:props,schema})});
+  if(!r.ok){const e=await r.json();throw new Error(e?.message||"Update failed")}
+}
+async function archivePage(pageId){
+  const r=await fetch("/api/notion?action=archive",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({page_id:pageId})});
+  if(!r.ok)throw new Error("Archive failed");
+}
 
 /* ══ HELPERS ══ */
 const EDITABLE=new Set(["title","text","rich_text","email","phone_number","url","number","select","multi_select","checkbox","date","place","status","person"]);
@@ -71,7 +79,7 @@ function Fld({label,value,onChange,type,required,options,placeholder,small}){
 }
 function Overlay({children,onClose}){return <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.35)",backdropFilter:"blur(3px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:100}}><div onClick={e=>e.stopPropagation()} style={{animation:"si .2s ease-out"}}>{children}</div></div>}
 function LinkBtn({url,label}){if(!url)return null;return <a href={url} target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:T.pri,fontWeight:600,textDecoration:"none",padding:"3px 8px",borderRadius:5,background:T.priBg,display:"inline-flex",alignItems:"center",gap:3,whiteSpace:"nowrap"}}>🔗 {label||"Ouvrir"}</a>}
-function NotionBtn({url}){if(!url)return null;return <a href={url} target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:"#fff",fontWeight:700,textDecoration:"none",padding:"3px 7px",borderRadius:5,background:"#111",display:"inline-flex",alignItems:"center",whiteSpace:"nowrap"}} title="Notion">N</a>}
+function NotionBtn({url}){if(!url)return null;const nurl=url.startsWith("notion://")?("https://notion.so/"+url.replace("notion://","")):url;return <a href={nurl} target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:"#fff",fontWeight:700,textDecoration:"none",padding:"3px 7px",borderRadius:5,background:"#111",display:"inline-flex",alignItems:"center",whiteSpace:"nowrap"}} title="Notion">N</a>}
 function Links({row,compact}){return <div style={{display:"inline-flex",gap:4,alignItems:"center"}}>{row?.["userDefined:URL"]&&<LinkBtn url={row["userDefined:URL"]} label={compact?"Doc":"Ouvrir"}/>}{row?.url&&<NotionBtn url={row.url}/>}</div>}
 function Avatar({uid,size}){const s=size||28;const u=USERS.find(x=>x.id===uid);const c=u?.color||"#999";return <div style={{width:s,height:s,borderRadius:s/2,background:c+"20",color:c,display:"flex",alignItems:"center",justifyContent:"center",fontSize:s*.4,fontWeight:700,flexShrink:0}} title={u?.name}>{u?.short?.[0]||"?"}</div>}
 
@@ -815,20 +823,21 @@ export default function App(){
     setLoading(true);
     const updated=[];
     for(const db of CFG){
-      for(let a=0;a<3;a++){try{const data=await qv(db.viewUrl);updated.push({...db,data});break}catch(e){if(e.message.includes("429")&&a<2){await wait(3000*(a+1));continue}updated.push({...db,data:[]});break}}
-      await wait(600);
+      for(let a=0;a<3;a++){try{const data=await queryDb(db.dsId);updated.push({...db,data});break}catch(e){if(a<2){await wait(1000*(a+1));continue}updated.push({...db,data:[]});break}}
+      await wait(200);
     }
     setDbs(updated);setLoading(false);
   },[]);
   useEffect(()=>{loadData()},[loadData]);
 
+  const pid=(url)=>(url||"").replace("notion://","");
   const handleSave=async(data)=>{const db=dbs[modal.type];if(!db)return;setBusy(true);
-    try{if(modal.mode==="create"){const relUrls={};for(const[rn,entries]of Object.entries(data.newRels||{})){const rd=db.schema[rn];if(!rd)continue;const target=dbs.find(d=>d.dsUrl===rd.dataSourceUrl);if(!target)continue;relUrls[rn]=[...(data.rels[rn]||[])];for(const t of entries){if(t?.trim()){const p=await cp(target.dsId,{[target.titleProp]:t.trim()});relUrls[rn].push(p.url)}}}
-      const props=buildProps(data.form,db.schema);Object.entries(data.rels||{}).forEach(([rn])=>{const urls=relUrls[rn]||data.rels[rn]||[];if(urls.length>0)props[rn]=JSON.stringify(urls)});await cp(db.dsId,props);notify("Créé !")}
-    else{await up(modal.data.url,buildProps(data.form,db.schema));notify("Enregistré !")}setModal(null);await loadData()
+    try{if(modal.mode==="create"){const relUrls={};for(const[rn,entries]of Object.entries(data.newRels||{})){const rd=db.schema[rn];if(!rd)continue;const target=dbs.find(d=>d.dsUrl===rd.dataSourceUrl);if(!target)continue;relUrls[rn]=[...(data.rels[rn]||[])];for(const t of entries){if(t?.trim()){const p=await createPage(target.dsId,{[target.titleProp]:t.trim()},target.schema);relUrls[rn].push(p.url)}}}
+      const props=buildProps(data.form,db.schema);Object.entries(data.rels||{}).forEach(([rn])=>{const urls=relUrls[rn]||data.rels[rn]||[];if(urls.length>0)props[rn]=JSON.stringify(urls)});await createPage(db.dsId,props,db.schema);notify("Créé !")}
+    else{await updatePage(pid(modal.data.url),buildProps(data.form,db.schema),db.schema);notify("Enregistré !")}setModal(null);await loadData()
     }catch(e){notify("Erreur: "+e.message,true)}setBusy(false)};
 
-  const handleDelete=async(url,name)=>{setBusy(true);try{await rp(url||confirm.url);notify("Supprimé !");setConfirm(null);await loadData()}catch(e){notify("Erreur",true)}setBusy(false)};
+  const handleDelete=async(url,name)=>{setBusy(true);try{await archivePage(pid(url||confirm.url));notify("Supprimé !");setConfirm(null);await loadData()}catch(e){notify("Erreur",true)}setBusy(false)};
 
   if(loading)return <div style={{fontFamily:font,display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:T.bg}}><div style={{textAlign:"center"}}><Spin s={24}/><p style={{color:"#999",fontSize:13,marginTop:12}}>Chargement des données Notion...</p></div></div>;
 
