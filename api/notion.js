@@ -1,9 +1,8 @@
 // api/notion.js — Proxy direct vers l'API Notion
 const NOTION = 'https://api.notion.com/v1';
 const TOKEN = () => process.env.NOTION_TOKEN;
-const HDR = () => ({ 'Authorization': `Bearer ${TOKEN()}`, 'Content-Type': 'application/json', 'Notion-Version': '2022-06-28' });
+const HDR = (t) => ({ 'Authorization': `Bearer ${t || TOKEN()}`, 'Content-Type': 'application/json', 'Notion-Version': '2022-06-28' });
 
-// Flatten Notion property to simple value
 function flatProp(name, prop) {
   const t = prop.type;
   if (t === 'title') return { [name]: (prop.title || []).map(t => t.plain_text).join('') };
@@ -22,10 +21,7 @@ function flatProp(name, prop) {
   }
   if (t === 'people') return { [name]: JSON.stringify((prop.people || []).map(p => 'user://' + p.id)) };
   if (t === 'relation') return { [name]: JSON.stringify((prop.relation || []).map(r => 'notion://' + r.id.replace(/-/g, ''))) };
-  if (t === 'formula') {
-    const f = prop.formula;
-    return { [name]: f?.string || f?.number || f?.boolean || '' };
-  }
+  if (t === 'formula') { const f = prop.formula; return { [name]: f?.string || f?.number || f?.boolean || '' }; }
   if (t === 'rollup') {
     const r = prop.rollup;
     if (r?.type === 'number') return { [name]: r.number };
@@ -38,7 +34,6 @@ function flatProp(name, prop) {
   return { [name]: '' };
 }
 
-// Flatten a Notion page to simple key-value object
 function flattenPage(page) {
   const row = { url: 'notion://' + page.id.replace(/-/g, '') };
   for (const [name, prop] of Object.entries(page.properties || {})) {
@@ -47,27 +42,23 @@ function flattenPage(page) {
   return row;
 }
 
-// Build Notion property object from flat form data
 function buildNotionProps(data, schema) {
   const props = {};
   for (const [key, val] of Object.entries(data)) {
     if (val === undefined || val === null || val === '') continue;
     if (key.startsWith('date:') && key.endsWith(':start')) {
       const name = key.replace('date:', '').replace(':start', '');
-      props[name] = { date: { start: val } };
-      continue;
+      props[name] = { date: { start: val } }; continue;
     }
     if (key.startsWith('date:') && (key.endsWith(':end') || key.endsWith(':is_datetime'))) continue;
     if (key.startsWith('place:')) continue;
     if (key.startsWith('person:')) {
       const name = key.replace('person:', '');
-      if (val) props[name] = { people: [{ id: val }] };
-      continue;
+      if (val) props[name] = { people: [{ id: val }] }; continue;
     }
     if (key.startsWith('userDefined:')) {
       const name = key.replace('userDefined:', '');
-      props[name] = { url: String(val) };
-      continue;
+      props[name] = { url: String(val) }; continue;
     }
     const s = schema?.[key];
     if (!s) continue;
@@ -82,34 +73,44 @@ function buildNotionProps(data, schema) {
     else if (s.type === 'phone_number') props[key] = { phone_number: String(val) };
     else if (s.type === 'date') props[key] = { date: { start: String(val) } };
     else if (s.type === 'relation') {
-      try {
-        const urls = JSON.parse(val);
-        props[key] = { relation: urls.map(u => ({ id: u.replace('notion://', '') })) };
-      } catch { }
+      try { const urls = JSON.parse(val); props[key] = { relation: urls.map(u => ({ id: u.replace('notion://', '') })) }; } catch { }
     }
     else if (s.type === 'person') {
-      try {
-        const users = JSON.parse(val);
-        props[key] = { people: users.map(u => ({ id: u.replace('user://', '') })) };
-      } catch { }
+      try { const users = JSON.parse(val); props[key] = { people: users.map(u => ({ id: u.replace('user://', '') })) }; } catch { }
     }
   }
   return props;
 }
 
 export default async function handler(req, res) {
-  const { action } = req.query;
+  const { action, token } = req.query;
 
-  // ── TEST (debug) ──
+  // ── TEST: accepte le token en query param pour debug ──
   if (action === 'test') {
-    const t = TOKEN() || '';
-    return res.json({ tokenLength: t.length, start: t.slice(0, 8), end: t.slice(-4), exists: !!t });
+    const t = token || TOKEN() || '';
+    if (!t) return res.json({ error: 'Aucun token fourni. Ajoutez ?token=ntn_xxx ou configurez NOTION_TOKEN' });
+    try {
+      const r = await fetch(NOTION + '/databases/343dfc12-15cc-806c-aec4-000b4089c60b', {
+        headers: { 'Authorization': 'Bearer ' + t, 'Notion-Version': '2022-06-28' }
+      });
+      const d = await r.json();
+      return res.json({
+        status: r.status,
+        ok: r.ok,
+        tokenStart: t.slice(0, 8),
+        tokenLength: t.length,
+        dbTitle: d.title?.[0]?.plain_text || null,
+        error: d.message || null
+      });
+    } catch (e) {
+      return res.json({ error: e.message });
+    }
   }
 
-  if (!TOKEN()) return res.status(500).json({ error: 'NOTION_TOKEN non configuré' });
+  const tk = TOKEN();
+  if (!tk) return res.status(500).json({ error: 'NOTION_TOKEN non configuré' });
 
   try {
-    // ── QUERY DATABASE ──
     if (action === 'query' && req.method === 'POST') {
       const { database_id, page_size = 100 } = req.body;
       let all = [];
@@ -128,7 +129,6 @@ export default async function handler(req, res) {
       return res.json({ results: all });
     }
 
-    // ── CREATE PAGE ──
     if (action === 'create' && req.method === 'POST') {
       const { database_id, properties, schema } = req.body;
       const notionProps = buildNotionProps(properties, schema);
@@ -141,7 +141,6 @@ export default async function handler(req, res) {
       return res.json({ page: flattenPage(data) });
     }
 
-    // ── UPDATE PAGE ──
     if (action === 'update' && req.method === 'PATCH') {
       const { page_id, properties, schema } = req.body;
       const notionProps = buildNotionProps(properties, schema);
@@ -154,7 +153,6 @@ export default async function handler(req, res) {
       return res.json({ ok: true });
     }
 
-    // ── ARCHIVE (DELETE) PAGE ──
     if (action === 'archive' && req.method === 'PATCH') {
       const { page_id } = req.body;
       const r = await fetch(`${NOTION}/pages/${page_id}`, {
