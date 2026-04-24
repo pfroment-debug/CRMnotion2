@@ -352,7 +352,7 @@ function DashboardView({dbs,crmUser}){
    ══════════════════════════════════════ */
 function ManagerView({dbs,tab,setTab,onModal,onDetail,onDelete}){
   const[search,setSearch]=useState("");
-  const needsGroupBySoc=dbs[tab]&&(dbs[tab].name.includes("Dossier")||dbs[tab].name.includes("Projet")||dbs[tab].name.includes("Jalon"));
+  const needsGroupBySoc=dbs[tab]&&(dbs[tab].name.includes("Dossier")||dbs[tab].name.includes("Projet")||dbs[tab].name.includes("Jalon")||dbs[tab].name.includes("Contact"));
   const[sortBy,setSortBy]=useState(needsGroupBySoc?"societe":"nom");
   const[sortDir,setSortDir]=useState("asc");
   const[filters,setFilters]=useState({});
@@ -528,10 +528,12 @@ function ManagerView({dbs,tab,setTab,onModal,onDetail,onDelete}){
     }
     // ── DOSSIERS ──
     if(dn.includes("Dossier")&&!dn.includes("Document")){
+      const DC={"CIR":"#2563EB","CII":"#7C3AED","SUB":"#16A34A","AGR":"#D97706","JEI":"#0EA5E9","Audit":"#DC2626","Autre":"#64748B"};
+      const dc=DC[row.Type]||"#64748B";
       const nL=countRel(row,"Livrables 2026"),nF=countRel(row,"Factures 2026"),nJ=countRel(row,"Projets 2026"),nR=countRel(row,"Réunions 2026");
       return crd(<div style={{display:"flex",alignItems:"center",gap:12}}>
-        <div style={{width:40,height:40,borderRadius:8,background:"#16A34A14",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-          <span style={{fontSize:13,fontWeight:800,color:"#16A34A"}}>{row.Type||"?"}</span>
+        <div style={{width:40,height:40,borderRadius:8,background:dc+"14",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+          <span style={{fontSize:13,fontWeight:800,color:dc}}>{row.Type||"?"}</span>
         </div>
         <div style={{flex:1}}>
           <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}><span style={{fontSize:14,fontWeight:600}}>{title}</span>{row["Année"]&&<Badge color="#D97706">{row["Année"]}</Badge>}</div>
@@ -648,7 +650,7 @@ function ManagerView({dbs,tab,setTab,onModal,onDetail,onDelete}){
   return <div>
     {/* Tabs */}
     <div style={{display:"flex",gap:0,overflowX:"auto",marginBottom:12}}>
-      {dbs.map((d,i)=><button key={i} onClick={()=>{setTab(i);setSearch("");setFilters({});setQuickFilters({});setActivePreset(null);setSortBy(dbs[i]&&(dbs[i].name.includes("Dossier")||dbs[i].name.includes("Projet")||dbs[i].name.includes("Jalon"))?"societe":"nom");setPage(0);setCollapsed({})}} style={{padding:"7px 14px",border:"none",cursor:"pointer",background:"transparent",fontFamily:font,fontSize:12,fontWeight:tab===i?700:400,color:tab===i?COLORS[i%COLORS.length]:"#999",borderBottom:"2px solid "+(tab===i?COLORS[i%COLORS.length]:"transparent"),whiteSpace:"nowrap"}}>{d.name.replace(" 2026","").replace("Jalons annuels","Jalons")}<span style={{marginLeft:4,fontSize:10,fontWeight:600,padding:"1px 5px",borderRadius:6,background:tab===i?COLORS[i%COLORS.length]+"18":"#F0F0EC",color:tab===i?COLORS[i%COLORS.length]:"#999"}}>{d.data?.length||0}</span></button>)}
+      {dbs.map((d,i)=><button key={i} onClick={()=>{setTab(i);setSearch("");setFilters({});setQuickFilters({});setActivePreset(null);setSortBy(dbs[i]&&(dbs[i].name.includes("Dossier")||dbs[i].name.includes("Projet")||dbs[i].name.includes("Jalon")||dbs[i].name.includes("Contact"))?"societe":"nom");setPage(0);setCollapsed({})}} style={{padding:"7px 14px",border:"none",cursor:"pointer",background:"transparent",fontFamily:font,fontSize:12,fontWeight:tab===i?700:400,color:tab===i?COLORS[i%COLORS.length]:"#999",borderBottom:"2px solid "+(tab===i?COLORS[i%COLORS.length]:"transparent"),whiteSpace:"nowrap"}}>{d.name.replace(" 2026","").replace("Jalons annuels","Jalons")}<span style={{marginLeft:4,fontSize:10,fontWeight:600,padding:"1px 5px",borderRadius:6,background:tab===i?COLORS[i%COLORS.length]+"18":"#F0F0EC",color:tab===i?COLORS[i%COLORS.length]:"#999"}}>{d.data?.length||0}</span></button>)}
     </div>
     {/* Segment tabs for Société */}
     {db?.name.includes("Société")&&<div style={{display:"flex",gap:0,marginBottom:10,background:"#F8F8F6",borderRadius:8,padding:2}}>
@@ -891,6 +893,7 @@ function DynForm({db,allDbs,modal,onClose,busy,onSave}){
    DETAIL VIEW (fiche)
    ══════════════════════════════════════ */
 function DetailView({entry,db,allDbs,onClose,onOpenModal,onDeleteEntry}){
+  const[detailCollapsed,setDetailCollapsed]=useState({});
   const title=entry[db.titleProp]||"Sans titre";const relFields=Object.entries(db.schema).filter(([,d])=>d.type==="relation");
   const infoFields=Object.entries(db.schema).filter(([,d])=>d.type!=="title"&&d.type!=="relation"&&!READONLY.has(d.type));const color=COLORS[allDbs.indexOf(db)%COLORS.length];const docsDb=allDbs.find(d=>d.name.includes("Documents"));
   return <div style={{background:"#fff",borderRadius:14,width:640,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 12px 36px rgba(0,0,0,.12)"}}>
@@ -904,8 +907,14 @@ function DetailView({entry,db,allDbs,onClose,onOpenModal,onDeleteEntry}){
     </div>
     <div style={{padding:"18px 22px"}}>
       {relFields.map(([rn,rd])=>{const tDb=allDbs.find(d=>d.dsUrl===rd.dataSourceUrl);if(!tDb)return null;const items=resolveRel(entry[rn],tDb);const tInfo=Object.entries(tDb.schema).filter(([,d])=>d.type!=="title"&&d.type!=="relation"&&!READONLY.has(d.type));const icon=tDb.name.includes("Contact")?"👤":tDb.name.includes("Réunion")?"📅":tDb.name.includes("Livrable")?"📋":tDb.name.includes("Document")?"📄":tDb.name.includes("Facture")?"💶":tDb.name.includes("Jalon")?"🎯":tDb.name.includes("Projet")?"🚀":tDb.name.includes("Risque")?"⚠️":tDb.name.includes("Dossier")?"📁":"🔗";const rev=Object.entries(tDb.schema).find(([,d])=>d.type==="relation"&&d.dataSourceUrl===db.dsUrl)?.[0];
-        return <div key={rn} style={{marginBottom:20}}><div style={{fontSize:12,fontWeight:700,color:"#999",textTransform:"uppercase",letterSpacing:.5,marginBottom:8}}>{icon} {rn} ({items.length})</div>
-          {items.length===0&&<div style={{fontSize:12,color:"#ccc",fontStyle:"italic",marginBottom:6}}>—</div>}
+        return <div key={rn} style={{marginBottom:12}}><div onClick={()=>setDetailCollapsed(p=>({...p,[rn]:!p[rn]}))} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",background:"#F8F8F6",borderRadius:8,cursor:"pointer",userSelect:"none",marginBottom:detailCollapsed[rn]?0:8}}>
+              <span style={{fontSize:11,transition:"transform .2s",transform:detailCollapsed[rn]?"rotate(0deg)":"rotate(90deg)",display:"inline-block"}}>▶</span>
+              <span style={{fontSize:12,fontWeight:700,color:"#666",textTransform:"uppercase",letterSpacing:.5}}>{icon} {rn.replace(" 2026","")}</span>
+              <span style={{fontSize:11,fontWeight:600,color:items.length?"#111":"#ccc",background:items.length?"#E5E5E0":"transparent",borderRadius:10,padding:"1px 8px"}}>{items.length}</span>
+              <div style={{flex:1}}/>
+              <button onClick={(e)=>{e.stopPropagation();const preRel=rev?{[rev]:entry.url}:{};onClose();onOpenModal({mode:"create",type:allDbs.indexOf(tDb),data:{},preRel})}} style={{background:"none",border:"none",color:T.pri,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:font}}>+ Ajouter</button>
+            </div>
+          {!detailCollapsed[rn]&&<>{items.length===0&&<div style={{fontSize:12,color:"#ccc",fontStyle:"italic",marginBottom:6,paddingLeft:10}}>—</div>}
           {items.map((item,idx)=>{const iT=item[tDb.titleProp]||"?";return <div key={idx} style={{background:T.bg,borderRadius:8,padding:"9px 12px",marginBottom:5,border:"1px solid "+T.bdr}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:tInfo.length?3:0}}>
               <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}><span style={{fontSize:13,fontWeight:600}}>{iT}</span>
@@ -921,8 +930,7 @@ function DetailView({entry,db,allDbs,onClose,onOpenModal,onDeleteEntry}){
               {tInfo.filter(([,d])=>d.type!=="select"&&d.type!=="number").map(([fn,fd])=>{const fv=dv(item,fn,fd,allDbs);if(!fv)return null;if(fd.type==="url")return <LinkBtn key={fn} url={fv}/>;return <span key={fn}>{TI[fd.type]||""} {fv}</span>})}
               {tDb.name.includes("Livrable")&&docsDb&&resolveRel(item["Documents 2026"],docsDb).map((doc,di)=><Links key={"dl"+di} row={doc} compact/>)}
             </div>
-          </div>})}
-          <button onClick={()=>{const preRel=rev?{[rev]:entry.url}:{};onClose();onOpenModal({mode:"create",type:allDbs.indexOf(tDb),data:{},preRel})}} style={{display:"flex",alignItems:"center",gap:4,padding:"5px 10px",borderRadius:6,border:"1.5px dashed "+T.pri+"40",background:"transparent",color:T.pri,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:font,marginTop:4}}>+ Ajouter</button>
+          </div>})}</>}
         </div>})}
     </div>
   </div>;
