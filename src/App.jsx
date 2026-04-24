@@ -84,7 +84,17 @@ function Links({row,compact}){return <div style={{display:"inline-flex",gap:4,al
 function Avatar({uid,size}){const s=size||28;const u=USERS.find(x=>x.id===uid);const c=u?.color||"#999";return <div style={{width:s,height:s,borderRadius:s/2,background:c+"20",color:c,display:"flex",alignItems:"center",justifyContent:"center",fontSize:s*.4,fontWeight:700,flexShrink:0}} title={u?.name}>{u?.short?.[0]||"?"}</div>}
 
 /* ══ KPI CARD ══ */
-function KPI({label,value,sub,color,icon}){return <div style={{background:"#fff",borderRadius:12,padding:"16px 18px",border:"1px solid "+T.bdr,flex:1,minWidth:130}}><div style={{display:"flex",justifyContent:"space-between"}}><div><div style={{fontSize:10,fontWeight:600,color:"#999",textTransform:"uppercase",letterSpacing:.5,marginBottom:3}}>{label}</div><div style={{fontSize:26,fontWeight:800,color:color||T.txt,lineHeight:1}}>{value}</div>{sub&&<div style={{fontSize:11,color:"#999",marginTop:3}}>{sub}</div>}</div>{icon&&<div style={{fontSize:20,opacity:.3}}>{icon}</div>}</div></div>}
+function KPI({label,value,sub,color,icon,accent}){const c=color||"#64748B";return <div style={{background:"#fff",borderRadius:14,padding:"14px 16px",border:"1px solid #F0EFEC",flex:1,minWidth:120,position:"relative",overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+  <div style={{position:"absolute",top:0,left:0,right:0,height:3,background:`linear-gradient(90deg, ${c}, ${c}88)`}}/>
+  <div style={{display:"flex",alignItems:"flex-start",gap:10}}>
+    <div style={{width:36,height:36,borderRadius:10,background:c+"10",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>{icon}</div>
+    <div style={{flex:1,minWidth:0}}>
+      <div style={{fontSize:10,fontWeight:700,color:"#94A3B8",textTransform:"uppercase",letterSpacing:.8,marginBottom:4,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{label}</div>
+      <div style={{fontSize:24,fontWeight:800,color:c,lineHeight:1,letterSpacing:-.5}}>{value}</div>
+      {sub&&<div style={{fontSize:10,color:"#94A3B8",marginTop:4,fontWeight:500}}>{sub}</div>}
+    </div>
+  </div>
+</div>}
 
 /* ══════════════════════════════════════
    DASHBOARD VIEW
@@ -146,7 +156,7 @@ function DashboardView({dbs,crmUser}){
     return <div>
       <button onClick={()=>setUserView(null)} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 12px",border:"none",background:"none",color:T.pri,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:font,marginBottom:16}}>← Retour</button>
       <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}><Avatar uid={userView} size={40}/><div><h2 style={{margin:0,fontSize:20,fontWeight:800}}>{u?.name}</h2><p style={{margin:0,fontSize:12,color:"#999"}}>{uL.length} livrables · {uU.length} urgents</p></div></div>
-      <div style={{display:"flex",gap:12,marginBottom:20,flexWrap:"wrap"}}><KPI label="Assignés" value={uL.length} color={u?.color} icon="📋"/><KPI label="En cours" value={uL.filter(l=>l.Etat==="En cours"||l.Etat==="En validation").length} icon="⏳"/><KPI label="Urgents" value={uU.length} color={uU.length?"#DC2626":undefined} icon="🚨"/><KPI label="Terminés" value={uL.filter(l=>l.Etat==="Terminé").length} color="#16A34A" icon="✅"/></div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(130px, 1fr))",gap:10,marginBottom:20}}><KPI label="Assignés" value={uL.length} color={u?.color} icon="📋"/><KPI label="En cours" value={uL.filter(l=>l.Etat==="En cours"||l.Etat==="En validation").length} icon="⏳" color="#D97706"/><KPI label="Urgents" value={uU.length} color={uU.length?"#DC2626":"#16A34A"} icon="🚨"/><KPI label="Terminés" value={uL.filter(l=>l.Etat==="Terminé").length} color="#16A34A" icon="✅"/></div>
       {uL.sort((a,b)=>daysUntil(a["date:Deadline:start"])-daysUntil(b["date:Deadline:start"])).map(l=>{const days=daysUntil(l["date:Deadline:start"]);const bad=days<0&&l.Etat!=="Terminé"&&l.Etat!=="Annulé";const urg=days>=0&&days<=3&&l.Etat!=="Terminé"&&l.Etat!=="Annulé";return <div key={l.url} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",background:bad?"#FEF2F2":urg?"#FFFBEB":"#fff",borderRadius:8,border:"1px solid "+(bad?"#DC262630":urg?"#D9770630":T.bdr),marginBottom:5}}><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{l.Nom}</div><div style={{display:"flex",gap:5,flexWrap:"wrap"}}>{l.Etat&&<Tag color={EC[l.Etat]}>{l.Etat}</Tag>}{l["Priorité"]&&<Tag color={PC[l["Priorité"]]}>{l["Priorité"]}</Tag>}</div></div><div style={{fontSize:12,fontWeight:600,color:bad?"#DC2626":urg?"#D97706":"#999"}}>{l["date:Deadline:start"]||"—"}</div><span style={{fontSize:11,color:"#888"}}>{socById[socUrl(l)]?.Nom||""}</span></div>})}
       {uL.length===0&&<div style={{color:"#999",fontStyle:"italic",fontSize:13}}>Aucun livrable assigné</div>}
     </div>;
@@ -159,8 +169,8 @@ function DashboardView({dbs,crmUser}){
       <div style={{fontSize:11,color:"#888"}}>Toutes les données liées à {USERS.find(u=>u.id===crmUser)?.short} (livrables, réunions, dossiers, sociétés, factures, risques...)</div></div>
     </div>}
     {/* KPIs */}
-    <div style={{display:"flex",gap:10,marginBottom:20,flexWrap:"wrap"}}>
-      <KPI label="Clients" value={clients.length} icon="🏢" color="#2563EB"/><KPI label="Dossiers" value={dossiers.length} icon="📁"/><KPI label="Réunions" value={reunionsAVenir.length} icon="📅" color="#7C3AED"/><KPI label="Livrables actifs" value={livrables.filter(l=>l.Etat!=="Terminé"&&l.Etat!=="Annulé").length} icon="📋" color="#D97706"/><KPI label="En retard" value={livRetard.length} color={livRetard.length?"#DC2626":"#16A34A"} icon="⚠️"/><KPI label="Risques" value={risquesActifs.length} color={risquesCritiques.length?"#DC2626":risquesActifs.length?"#D97706":"#16A34A"} sub={risquesCritiques.length?risquesCritiques.length+" critique(s)":undefined} icon="🚨"/><KPI label="CA total" value={fmt(caTotal)} sub={caPaye?fmt(caPaye)+" encaissé":undefined} icon="💶" color="#16A34A"/>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(140px, 1fr))",gap:10,marginBottom:22}}>
+      <KPI label="Clients" value={clients.length} icon="🏢" color="#2563EB"/><KPI label="Dossiers" value={dossiers.length} icon="📁" color="#8B5CF6"/><KPI label="Réunions" value={reunionsAVenir.length} icon="📅" color="#7C3AED"/><KPI label="Livrables actifs" value={livrables.filter(l=>l.Etat!=="Terminé"&&l.Etat!=="Annulé").length} icon="📋" color="#D97706"/><KPI label="En retard" value={livRetard.length} color={livRetard.length?"#DC2626":"#16A34A"} icon="⚠️"/><KPI label="Risques" value={risquesActifs.length} color={risquesCritiques.length?"#DC2626":risquesActifs.length?"#D97706":"#16A34A"} sub={risquesCritiques.length?risquesCritiques.length+" critique(s)":undefined} icon="🚨"/><KPI label="CA total" value={fmt(caTotal)} sub={caPaye?fmt(caPaye)+" encaissé":undefined} icon="💶" color="#16A34A"/>
     </div>
 
     {/* ══ URGENCES ══ */}
