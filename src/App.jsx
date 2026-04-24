@@ -57,7 +57,7 @@ function dv(row,n,def,all){
   return row[n]||"";
 }
 function resolveRel(j,db){if(!db||!j)return[];try{return JSON.parse(j).map(u=>db.data?.find(r=>r.url===u)).filter(Boolean)}catch{return[]}}
-function buildProps(f,schema){const p={};const numFields=schema?new Set(Object.entries(schema).filter(([,d])=>d.type==="number").map(([n])=>n)):new Set();Object.entries(f).forEach(([k,v])=>{if(k.startsWith("place:")&&v?.trim()){const n=k.replace("place:","");p["place:"+n+":name"]=v.trim();p["place:"+n+":address"]=v.trim();p["place:"+n+":latitude"]=48.8566;p["place:"+n+":longitude"]=2.3522}else if(k.startsWith("date:")&&v?.trim()){const n=k.replace("date:","");p["date:"+n+":start"]=v.trim();p["date:"+n+":is_datetime"]=0}else if(k.startsWith("person:")&&v){const n=k.replace("person:","");p[n]=JSON.stringify(["user://"+v])}else if(v!==undefined&&v!==null&&String(v).trim()){if(numFields.has(k)){const num=parseFloat(v);if(!isNaN(num))p[k]=num}else p[k]=String(v).trim()}});return p}
+function buildProps(f,schema){const p={};const numFields=schema?new Set(Object.entries(schema).filter(([,d])=>d.type==="number").map(([n])=>n)):new Set();const cbFields=schema?new Set(Object.entries(schema).filter(([,d])=>d.type==="checkbox").map(([n])=>n)):new Set();Object.entries(f).forEach(([k,v])=>{if(k.startsWith("place:")&&v?.trim()){const n=k.replace("place:","");p["place:"+n+":name"]=v.trim();p["place:"+n+":address"]=v.trim();p["place:"+n+":latitude"]=48.8566;p["place:"+n+":longitude"]=2.3522}else if(k.startsWith("date:")&&v?.trim()){const n=k.replace("date:","");p["date:"+n+":start"]=v.trim();p["date:"+n+":is_datetime"]=0}else if(k.startsWith("person:")&&v){const n=k.replace("person:","");p[n]=JSON.stringify(["user://"+v])}else if(cbFields.has(k)){p[k]=v==="__YES__"?"__YES__":""}else if(v!==undefined&&v!==null&&String(v).trim()){if(numFields.has(k)){const num=parseFloat(v);if(!isNaN(num))p[k]=num}else p[k]=String(v).trim()}});return p}
 function inputType(t){return{title:"text",text:"text",rich_text:"text",email:"email",phone_number:"tel",url:"url",number:"number",date:"date"}[t]||"text"}
 
 /* ══ THEME ══ */
@@ -758,7 +758,7 @@ function DynForm({db,allDbs,modal,onClose,busy,onSave}){
   const editFields=Object.entries(db.schema).filter(([,d])=>EDITABLE.has(d.type)).sort((a,b)=>a[1].type==="title"?-1:b[1].type==="title"?1:0);
   const relFields=Object.entries(db.schema).filter(([,d])=>d.type==="relation");
   const selectFields=Object.entries(db.schema).filter(([,d])=>d.type==="select");
-  const[form,setForm]=useState(()=>{const init={};editFields.forEach(([n,d])=>{if(d.type==="place")init["place:"+n]=modal.data?.["place:"+n+":address"]||"";else if(d.type==="date")init["date:"+n]=modal.data?.["date:"+n+":start"]||"";else if(d.type==="person"){try{init["person:"+n]=(JSON.parse(modal.data?.[n]||"[]")[0]||"").replace("user://","")}catch{init["person:"+n]=""}}else init[n]=modal.data?.[n]||""});return init});
+  const[form,setForm]=useState(()=>{const init={};editFields.forEach(([n,d])=>{if(d.type==="place")init["place:"+n]=modal.data?.["place:"+n+":address"]||"";else if(d.type==="date")init["date:"+n]=modal.data?.["date:"+n+":start"]||"";else if(d.type==="person"){try{init["person:"+n]=(JSON.parse(modal.data?.[n]||"[]")[0]||"").replace("user://","")}catch{init["person:"+n]=""}}else if(d.type==="checkbox")init[n]=modal.data?.[n]===true||modal.data?.[n]==="__YES__"?"__YES__":"";else init[n]=modal.data?.[n]||""});return init});
   const[rels,setRels]=useState(()=>{const init={};relFields.forEach(([n])=>{const pre=modal.preRel?.[n];if(pre){init[n]=[pre];return}try{init[n]=JSON.parse(modal.data?.[n]||"[]")}catch{init[n]=[]}});return init});
   const[newRels,setNewRels]=useState({});const[autoName,setAutoName]=useState(isCreate);
   const set=(k,v)=>{if(k===titlePropName)setAutoName(false);setForm(p=>({...p,[k]:v}))};
@@ -843,7 +843,21 @@ function DynForm({db,allDbs,modal,onClose,busy,onSave}){
     if(def.type==="place")return <Fld key={name} label={"📍 "+name} value={form["place:"+name]} onChange={v=>set("place:"+name,v)} placeholder="Adresse"/>;
     if(def.type==="date")return <Fld key={name} label={"📅 "+name} value={form["date:"+name]} onChange={v=>setForm(p=>({...p,["date:"+name]:v}))} type="date"/>;
     if(def.type==="person")return <div key={name} style={{display:"flex",flexDirection:"column",gap:4}}><label style={{fontSize:11,fontWeight:600,color:"#999"}}>👤 {name}</label><select value={form["person:"+name]||""} onChange={e=>set("person:"+name,e.target.value)} style={{width:"100%",padding:"8px 10px",background:T.bg,border:"1.5px solid "+T.bdr,borderRadius:T.rs,fontSize:13,fontFamily:font,outline:"none"}}><option value="">—</option>{USERS.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}</select></div>;
-    if(def.type==="select"||def.type==="status")return <Fld key={name} label={name} value={form[name]} onChange={v=>setForm(p=>({...p,[name]:v}))} type="select" options={(def.options||[]).map(o=>o.name)}/>;
+    if(def.type===="select"||def.type==="status")return <Fld key={name} label={name} value={form[name]} onChange={v=>setForm(p=>({...p,[name]:v}))} type="select" options={(def.options||[]).map(o=>o.name)}/>;
+    if(def.type==="checkbox")return <div key={name} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0"}}>
+      <label style={{fontSize:11,fontWeight:600,color:"#999",flex:1}}>{name}</label>
+      <button onClick={()=>set(name,form[name]==="__YES__"?"":"__YES__")} style={{width:40,height:22,borderRadius:11,border:"none",cursor:"pointer",position:"relative",background:form[name]==="__YES__"?"#16A34A":"#D1D5DB",transition:"background .2s"}}>
+        <div style={{width:18,height:18,borderRadius:9,background:"#fff",position:"absolute",top:2,left:form[name]==="__YES__"?20:2,transition:"left .2s",boxShadow:"0 1px 2px rgba(0,0,0,.15)"}}/>
+      </button>
+      <span style={{fontSize:11,color:form[name]==="__YES__"?"#16A34A":"#999",fontWeight:600}}>{form[name]==="__YES__"?"Oui":"Non"}</span>
+    </div>;
+    if(def.type==="number"&&name==="Avancement")return <div key={name} style={{display:"flex",flexDirection:"column",gap:4}}>
+      <label style={{fontSize:11,fontWeight:600,color:"#999"}}>{name} (%)</label>
+      <div style={{display:"flex",alignItems:"center",gap:8}}>
+        <input type="range" min="0" max="100" step="5" value={Math.round((form[name]||0)*100)} onChange={e=>set(name,parseInt(e.target.value)/100)} style={{flex:1,cursor:"pointer"}}/>
+        <span style={{fontSize:14,fontWeight:700,color:Math.round((form[name]||0)*100)>=100?"#16A34A":Math.round((form[name]||0)*100)>=50?"#2563EB":"#D97706",minWidth:40,textAlign:"right"}}>{Math.round((form[name]||0)*100)}%</span>
+      </div>
+    </div>;
     return <Fld key={name} label={name} value={form[name]} onChange={v=>set(name,v)} type={inputType(def.type)} placeholder={def.type==="email"?"email@ex.fr":def.type==="number"?"0":""}/>;
   };
   return <div style={{background:"#fff",borderRadius:14,width:480,boxShadow:"0 12px 36px rgba(0,0,0,.12)",overflow:"hidden",maxHeight:"90vh",overflowY:"auto"}}>
