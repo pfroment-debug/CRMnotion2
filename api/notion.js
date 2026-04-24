@@ -45,6 +45,12 @@ function flattenPage(page) {
 function buildNotionProps(data, schema) {
   const props = {};
   for (const [key, val] of Object.entries(data)) {
+    // Handle checkboxes first (empty string = unchecked)
+    const s = schema?.[key];
+    if (s?.type === 'checkbox') {
+      props[key] = { checkbox: val === true || val === '__YES__' };
+      continue;
+    }
     if (val === undefined || val === null || val === '') continue;
     if (key.startsWith('date:') && key.endsWith(':start')) {
       const name = key.replace('date:', '').replace(':start', '');
@@ -67,7 +73,6 @@ function buildNotionProps(data, schema) {
     else if (s.type === 'number') props[key] = { number: parseFloat(val) || 0 };
     else if (s.type === 'select') props[key] = { select: { name: String(val) } };
     else if (s.type === 'status') props[key] = { status: { name: String(val) } };
-    else if (s.type === 'checkbox') props[key] = { checkbox: val === true || val === '__YES__' };
     else if (s.type === 'url') props[key] = { url: String(val) };
     else if (s.type === 'email') props[key] = { email: String(val) };
     else if (s.type === 'phone_number') props[key] = { phone_number: String(val) };
