@@ -11,7 +11,7 @@ const USERS=[
 const CFG=[
   {name:"Contacts 2026",dsId:"343dfc12-15cc-80b0-ac5d-e7c6de8026e9",dsUrl:"collection://343dfc12-15cc-801f-b97f-000b41041867",viewUrl:"view://343dfc12-15cc-8087-b53b-000c7f890fad",titleProp:"Prénom",schema:{"Prénom":{type:"title"},"N. Famille":{type:"text"},"Fonction":{type:"select",options:[{name:"Président"},{name:"Directeur"},{name:"Associé"},{name:"Consultant"},{name:"Manager"},{name:"Autre"}]},"Email Address":{type:"email"},"Phone Number":{type:"phone_number"},"Société 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-806c-aec4-000b4089c60b"},"Réunions 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-802b-bbe0-000b16ae3566"}}},
   {name:"Société 2026",dsId:"343dfc12-15cc-80d8-bca4-f624826c626c",dsUrl:"collection://343dfc12-15cc-806c-aec4-000b4089c60b",viewUrl:"view://343dfc12-15cc-80ba-83a4-000c8db9d508",titleProp:"Nom",schema:{"Nom":{type:"title"},"Statut":{type:"select",options:[{name:"Partenaire"},{name:"Client"},{name:"Prospect"},{name:"Fournisseur"},{name:"Autre"}]},"Lieu":{type:"place"},"Contacts 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-801f-b97f-000b41041867"},"Réunions 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-802b-bbe0-000b16ae3566"},"Livrables 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-80a4-8b0c-000b0dc0766d"},"Documents 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-80e7-a558-000b92a6fff3"},"Dossiers 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-8066-9ea0-000b00130dd3"},"Factures 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-8005-9533-000bb82f3280"},"Jalons annuels Projets 2026":{type:"relation",dataSourceUrl:"collection://346dfc12-15cc-80e3-8d11-000bcd38b4f9"},"Projets 2026":{type:"relation",dataSourceUrl:"collection://346dfc12-15cc-8070-8f8e-000bba2683fe"},"Risques & Alertes 2026":{type:"relation",dataSourceUrl:"collection://c49aaa84-043e-4e84-9a46-1a3cef2ba656"}}},
-  {name:"Réunions 2026",dsId:"343dfc12-15cc-8036-a376-f749fecab404",dsUrl:"collection://343dfc12-15cc-802b-bbe0-000b16ae3566",viewUrl:"view://343dfc12-15cc-80cd-ac55-000cc98aa787",titleProp:"Nom",schema:{"Nom":{type:"title"},"Type":{type:"select",options:[{name:"Client"},{name:"Interne"},{name:"Kick-off"},{name:"Suivi"},{name:"Restitution"},{name:"Autre"}]},"Date":{type:"date"},"Participants":{type:"person"},"Société 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-806c-aec4-000b4089c60b"},"Contacts 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-801f-b97f-000b41041867"},"Livrables 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-80a4-8b0c-000b0dc0766d"},"Documents 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-80e7-a558-000b92a6fff3"},"Dossiers 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-8066-9ea0-000b00130dd3"},"Jalons annuels Projets 2026":{type:"relation",dataSourceUrl:"collection://346dfc12-15cc-80e3-8d11-000bcd38b4f9"}}},
+  {name:"Réunions 2026",dsId:"343dfc12-15cc-8036-a376-f749fecab404",dsUrl:"collection://343dfc12-15cc-802b-bbe0-000b16ae3566",viewUrl:"view://343dfc12-15cc-80cd-ac55-000cc98aa787",titleProp:"Nom",schema:{"Nom":{type:"title"},"Type":{type:"select",options:[{name:"Client"},{name:"Interne"},{name:"Kick-off"},{name:"Suivi"},{name:"Restitution"},{name:"Autre"}]},"Statut":{type:"select",options:[{name:"A valider"},{name:"planifié"},{name:"annulé"},{name:"réalisé"}]},"Date":{type:"date"},"Participants":{type:"person"},"Société 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-806c-aec4-000b4089c60b"},"Contacts 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-801f-b97f-000b41041867"},"Livrables 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-80a4-8b0c-000b0dc0766d"},"Documents 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-80e7-a558-000b92a6fff3"},"Dossiers 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-8066-9ea0-000b00130dd3"},"Jalons annuels Projets 2026":{type:"relation",dataSourceUrl:"collection://346dfc12-15cc-80e3-8d11-000bcd38b4f9"},"Projets 2026":{type:"relation",dataSourceUrl:"collection://346dfc12-15cc-8070-8f8e-000bba2683fe"}}},
   {name:"Livrables 2026",dsId:"343dfc12-15cc-8005-9cad-f8bd538b9b99",dsUrl:"collection://343dfc12-15cc-80a4-8b0c-000b0dc0766d",viewUrl:"view://343dfc12-15cc-80a3-a931-000ca1ba17ba",titleProp:"Nom",schema:{"Nom":{type:"title"},"Type":{type:"select",options:[{name:"calcul"},{name:"rapport"},{name:"présentation"},{name:"analyse"},{name:"déclaration"},{name:"autre"}]},"Etat":{type:"select",options:[{name:"En cours"},{name:"En validation"},{name:"Terminé"},{name:"En attente"},{name:"Annulé"}]},"Priorité":{type:"select",options:[{name:"Haute"},{name:"Moyenne"},{name:"Basse"}]},"Deadline":{type:"date"},"Assigned To":{type:"person"},"Société 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-806c-aec4-000b4089c60b"},"Documents 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-80e7-a558-000b92a6fff3"},"Dossiers 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-8066-9ea0-000b00130dd3"},"Jalons annuels Projets 2026":{type:"relation",dataSourceUrl:"collection://346dfc12-15cc-80e3-8d11-000bcd38b4f9"}}},
   {name:"Documents 2026",dsId:"343dfc12-15cc-80d1-961b-ff7b013237c2",dsUrl:"collection://343dfc12-15cc-80e7-a558-000b92a6fff3",viewUrl:"view://343dfc12-15cc-80e6-9499-000cf4bc63dc",titleProp:"Nom",schema:{"Nom":{type:"title"},"Type":{type:"select",options:[{name:"Sheet"},{name:"Doc"},{name:"Slide"},{name:"PDF"},{name:"Image"},{name:"Autre"}]},"userDefined:URL":{type:"url"},"Société 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-806c-aec4-000b4089c60b"},"Livrables 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-80a4-8b0c-000b0dc0766d"},"Dossiers 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-8066-9ea0-000b00130dd3"}}},
   {name:"Dossiers 2026",dsId:"343dfc12-15cc-80b0-ba49-ca34c7d85596",dsUrl:"collection://343dfc12-15cc-8066-9ea0-000b00130dd3",viewUrl:"view://343dfc12-15cc-808a-ac35-000c7be09a4a",titleProp:"Nom",schema:{"Nom":{type:"title"},"Type":{type:"select",options:[{name:"CII"},{name:"CIR"},{name:"JEI"},{name:"Audit"},{name:"AGR"},{name:"Subvention"},{name:"Autre"}]},"Personne":{type:"person"},"Année":{type:"select",options:[{name:"2018"},{name:"2019"},{name:"2020"},{name:"2021"},{name:"2022"},{name:"2023"},{name:"2024"},{name:"2025"},{name:"2026"}]},"Société 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-806c-aec4-000b4089c60b"},"Livrables 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-80a4-8b0c-000b0dc0766d"},"Documents 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-80e7-a558-000b92a6fff3"},"Factures 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-8005-9533-000bb82f3280"},"Réunions 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-802b-bbe0-000b16ae3566"},"Projets 2026":{type:"relation",dataSourceUrl:"collection://346dfc12-15cc-80e3-8d11-000bcd38b4f9"},"Risques & Alertes 2026":{type:"relation",dataSourceUrl:"collection://c49aaa84-043e-4e84-9a46-1a3cef2ba656"}}},
@@ -338,9 +338,12 @@ function DashboardView({dbs}){
    ══════════════════════════════════════ */
 function ManagerView({dbs,tab,setTab,onModal,onDetail,onDelete}){
   const[search,setSearch]=useState("");
-  const[sortBy,setSortBy]=useState("nom");
+  const needsGroupBySoc=dbs[tab]&&(dbs[tab].name.includes("Dossier")||dbs[tab].name.includes("Projet")||dbs[tab].name.includes("Jalon"));
+  const[sortBy,setSortBy]=useState(needsGroupBySoc?"societe":"nom");
   const[sortDir,setSortDir]=useState("asc");
   const[filters,setFilters]=useState({});
+  const[quickFilters,setQuickFilters]=useState({});
+  const[collapsed,setCollapsed]=useState({});
   const[page,setPage]=useState(0);
   const PER_PAGE=25;
   const db=dbs[tab];
@@ -363,6 +366,9 @@ function ManagerView({dbs,tab,setTab,onModal,onDetail,onDelete}){
 
   // Apply select filters
   Object.entries(filters).forEach(([field,val])=>{if(val)results=results.filter(r=>r[field]===val)});
+
+  // Apply quick filters (multi-select: show items matching ANY selected value per field)
+  Object.entries(quickFilters).forEach(([field,vals])=>{if(vals&&vals.length>0)results=results.filter(r=>vals.includes(r[field]))});
 
   // Sort
   const socName=(row)=>{const sDb=dbs.find(d=>d.name.includes("Société"));if(!sDb)return"";try{const urls=JSON.parse(row["Société 2026"]||"[]");const s=sDb.data?.find(r=>r.url===urls[0]);return s?.Nom||""}catch{return""}};
@@ -595,7 +601,7 @@ function ManagerView({dbs,tab,setTab,onModal,onDetail,onDelete}){
   return <div>
     {/* Tabs */}
     <div style={{display:"flex",gap:0,overflowX:"auto",marginBottom:12}}>
-      {dbs.map((d,i)=><button key={i} onClick={()=>{setTab(i);setSearch("");setFilters({});setSortBy("nom");setPage(0)}} style={{padding:"7px 14px",border:"none",cursor:"pointer",background:"transparent",fontFamily:font,fontSize:12,fontWeight:tab===i?700:400,color:tab===i?COLORS[i%COLORS.length]:"#999",borderBottom:"2px solid "+(tab===i?COLORS[i%COLORS.length]:"transparent"),whiteSpace:"nowrap"}}>{d.name.replace(" 2026","").replace("Jalons annuels","Jalons")}<span style={{marginLeft:4,fontSize:10,fontWeight:600,padding:"1px 5px",borderRadius:6,background:tab===i?COLORS[i%COLORS.length]+"18":"#F0F0EC",color:tab===i?COLORS[i%COLORS.length]:"#999"}}>{d.data?.length||0}</span></button>)}
+      {dbs.map((d,i)=><button key={i} onClick={()=>{setTab(i);setSearch("");setFilters({});setQuickFilters({});setSortBy(dbs[i]&&(dbs[i].name.includes("Dossier")||dbs[i].name.includes("Projet")||dbs[i].name.includes("Jalon"))?"societe":"nom");setPage(0);setCollapsed({})}} style={{padding:"7px 14px",border:"none",cursor:"pointer",background:"transparent",fontFamily:font,fontSize:12,fontWeight:tab===i?700:400,color:tab===i?COLORS[i%COLORS.length]:"#999",borderBottom:"2px solid "+(tab===i?COLORS[i%COLORS.length]:"transparent"),whiteSpace:"nowrap"}}>{d.name.replace(" 2026","").replace("Jalons annuels","Jalons")}<span style={{marginLeft:4,fontSize:10,fontWeight:600,padding:"1px 5px",borderRadius:6,background:tab===i?COLORS[i%COLORS.length]+"18":"#F0F0EC",color:tab===i?COLORS[i%COLORS.length]:"#999"}}>{d.data?.length||0}</span></button>)}
     </div>
     {/* Toolbar: search + sort + filters */}
     <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:14,flexWrap:"wrap"}}>
@@ -611,11 +617,23 @@ function ManagerView({dbs,tab,setTab,onModal,onDetail,onDelete}){
           {vals.map(v=><option key={v} value={v}>{v}</option>)}
         </select>;
       })}
-      {Object.values(filters).some(Boolean)&&<button onClick={()=>{setFilters({});setPage(0)}} style={{...sst,color:T.dng,border:"1px solid "+T.dng+"40"}}>✕ Filtres</button>}
+      {(Object.values(filters).some(Boolean)||Object.values(quickFilters).some(v=>v?.length>0))&&<button onClick={()=>{setFilters({});setQuickFilters({});setPage(0)}} style={{...sst,color:T.dng,border:"1px solid "+T.dng+"40"}}>✕ Filtres</button>}
       <div style={{flex:1}}/>
       <span style={{fontSize:11,color:"#999"}}>{results.length} résultat{results.length>1?"s":""}</span>
       {db&&<Btn size="sm" onClick={()=>onModal({mode:"create",type:tab,data:{}})}>+ Nouveau</Btn>}
     </div>
+    {/* Quick filter chips for select/status fields */}
+    {selectFields.length>0&&<div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"flex-start"}}>
+      {selectFields.map(([fieldName,fieldDef])=>{
+        const vals=[...new Set((db.data||[]).map(r=>r[fieldName]).filter(Boolean))].sort();
+        if(vals.length===0||vals.length>10)return null;
+        const active=quickFilters[fieldName]||[];
+        return <div key={fieldName} style={{display:"flex",gap:3,alignItems:"center",flexWrap:"wrap"}}>
+          <span style={{fontSize:10,color:"#999",fontWeight:600,marginRight:2}}>{fieldName}:</span>
+          {vals.map(v=>{const on=active.includes(v);return <button key={v} onClick={()=>{setQuickFilters(p=>{const cur=p[fieldName]||[];const next=on?cur.filter(x=>x!==v):[...cur,v];return{...p,[fieldName]:next.length?next:undefined}});setPage(0)}} style={{padding:"2px 8px",borderRadius:10,border:"1px solid "+(on?T.pri+"60":T.bdr),background:on?T.pri+"14":"#fff",color:on?T.pri:"#888",fontSize:11,fontWeight:on?600:400,cursor:"pointer",fontFamily:font,transition:"all .15s"}}>{v}{on?" ✓":""}</button>})}
+        </div>;
+      })}
+    </div>}
     {/* Pagination info */}
     {(() => {
       const totalPages=Math.ceil(results.length/PER_PAGE);
@@ -639,11 +657,16 @@ function ManagerView({dbs,tab,setTab,onModal,onDetail,onDelete}){
       return <>
         <PaginationBar/>
         {results.length===0?<div style={{textAlign:"center",padding:40,color:"#999"}}>{search||Object.values(filters).some(Boolean)?"Aucun résultat pour ces critères":"Aucune entrée"}</div>:
-        grouped?<div style={{display:"grid",gap:16}}>
-          {groups.map(([socLabel,items])=><div key={socLabel}>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><div style={{width:28,height:28,borderRadius:7,background:"#2563EB14",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,color:"#2563EB"}}>{socLabel[0]}</div><span style={{fontSize:13,fontWeight:700}}>{socLabel}</span><span style={{fontSize:11,color:"#999"}}>({items.length})</span></div>
-            <div style={{display:"grid",gap:5,paddingLeft:36}}>{items.map(renderCard)}</div>
-          </div>)}
+        grouped?<div style={{display:"grid",gap:12}}>
+          {groups.map(([socLabel,items])=>{const isOpen=!collapsed[socLabel];return <div key={socLabel}>
+            <div onClick={()=>setCollapsed(p=>({...p,[socLabel]:!p[socLabel]}))} style={{display:"flex",alignItems:"center",gap:8,marginBottom:isOpen?8:0,cursor:"pointer",userSelect:"none",padding:"6px 8px",background:"#F8F8F6",borderRadius:8}}>
+              <span style={{fontSize:12,transition:"transform .2s",transform:isOpen?"rotate(90deg)":"rotate(0deg)",display:"inline-block"}}>▶</span>
+              <div style={{width:28,height:28,borderRadius:7,background:"#2563EB14",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,color:"#2563EB"}}>{socLabel[0]}</div>
+              <span style={{fontSize:13,fontWeight:700,flex:1}}>{socLabel}</span>
+              <span style={{fontSize:11,color:"#999",fontWeight:600}}>{items.length} élément{items.length>1?"s":""}</span>
+            </div>
+            {isOpen&&<div style={{display:"grid",gap:5,paddingLeft:36}}>{items.map(renderCard)}</div>}
+          </div>})}
         </div>:
         <div style={{display:"grid",gap:6}}>{paged.map(renderCard)}</div>}
         <PaginationBar/>
