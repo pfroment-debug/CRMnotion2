@@ -197,59 +197,6 @@ function DashboardView({dbs}){
       </div>
     </div>}
 
-    {/* ══ PAR SOCIÉTÉ ══ */}
-    <h3 style={{margin:"0 0 14px",fontSize:15,fontWeight:800}}>🏢 Par société</h3>
-    <div style={{display:"grid",gap:10,marginBottom:24}}>
-      {socData.map(({soc,sLivActifs,sRetard,sFac,sDos,sRisActifs,sCA,sAFact,sReuAVenir})=>{
-        const isExp=expandedSoc===soc.url;const hasIssues=sRetard.length>0||sRisActifs.some(r=>r["Sévérité"]==="Critique");
-        return <div key={soc.url} style={{background:"#fff",borderRadius:12,border:"1.5px solid "+(hasIssues?"#DC262620":T.bdr),overflow:"hidden"}}>
-          <div onClick={()=>setExpandedSoc(isExp?null:soc.url)} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 18px",cursor:"pointer",background:hasIssues?"#FEF2F240":"transparent"}}>
-            <div style={{width:42,height:42,borderRadius:10,background:"#2563EB14",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:800,color:"#2563EB",flexShrink:0}}>{(soc.Nom||"?")[0]}</div>
-            <div style={{flex:1}}>
-              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}>
-                <span style={{fontSize:15,fontWeight:700}}>{soc.Nom}</span>
-                {soc.Statut&&<Badge color={soc.Statut==="Client"?"#2563EB":soc.Statut==="Prospect"?"#D97706":"#16A34A"}>{soc.Statut}</Badge>}
-                {sRetard.length>0&&<Badge color="#DC2626">{sRetard.length} retard{sRetard.length>1?"s":""}</Badge>}
-                {sRisActifs.filter(r=>r["Sévérité"]==="Critique").length>0&&<Badge color="#DC2626">🔴 critique</Badge>}
-              </div>
-              <div style={{display:"flex",gap:14,fontSize:11,color:"#999"}}>
-                <span>📋 {sLivActifs.length}</span><span>📁 {sDos.length}</span>
-                {sCA>0&&<span>💶 {fmt(sCA)}</span>}
-                {sAFact.length>0&&<span style={{color:"#D97706"}}>⏳ {sAFact.length} à fact.</span>}
-                {sReuAVenir.length>0&&<span>📅 {sReuAVenir.length}</span>}
-              </div>
-            </div>
-            <span style={{fontSize:16,color:"#ccc",transition:"transform .2s",transform:isExp?"rotate(90deg)":"rotate(0)"}}>▸</span>
-          </div>
-          {isExp&&<div style={{padding:"0 18px 16px",borderTop:"1px solid "+T.bdr}}>
-            {sRetard.length>0&&<div style={{marginTop:12}}><div style={{fontSize:11,fontWeight:700,color:"#DC2626",textTransform:"uppercase",marginBottom:6}}>⏰ En retard ({sRetard.length})</div>
-              {sRetard.map(l=><div key={l.url} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:"#FEF2F2",borderRadius:6,marginBottom:4,fontSize:12}}>
-                <div style={{flex:1,fontWeight:600}}>{l.Nom}</div><Avatar uid={userIds(l["Assigned To"])[0]} size={20}/><span style={{color:"#DC2626",fontWeight:600}}>{Math.abs(daysUntil(l["date:Deadline:start"]))}j</span>
-              </div>)}
-            </div>}
-            {sRisActifs.length>0&&<div style={{marginTop:12}}><div style={{fontSize:11,fontWeight:700,color:"#D97706",textTransform:"uppercase",marginBottom:6}}>⚠️ Risques ({sRisActifs.length})</div>
-              {sRisActifs.map(r=>{const sc=r["Sévérité"]==="Critique"?"#DC2626":r["Sévérité"]==="Attention"?"#D97706":"#2563EB";return <div key={r.url} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:T.bg,borderRadius:6,marginBottom:4,fontSize:12}}>
-                <span>{r["Sévérité"]==="Critique"?"🔴":"🟠"}</span><div style={{flex:1,fontWeight:600}}>{r.Nom}</div><Tag color={sc}>{r["Type d'alerte"]}</Tag>{r["Montant exposé (€)"]&&<span style={{fontWeight:700,color:sc}}>{fmt(r["Montant exposé (€)"])}</span>}
-              </div>})}
-            </div>}
-            {sLivActifs.length>0&&<div style={{marginTop:12}}><div style={{fontSize:11,fontWeight:700,color:"#2563EB",textTransform:"uppercase",marginBottom:6}}>📋 Livrables ({sLivActifs.length})</div>
-              {sLivActifs.sort((a,b)=>daysUntil(a["date:Deadline:start"])-daysUntil(b["date:Deadline:start"])).map(l=>{const d=daysUntil(l["date:Deadline:start"]);return <div key={l.url} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:T.bg,borderRadius:6,marginBottom:4,fontSize:12}}>
-                <div style={{flex:1,fontWeight:600}}>{l.Nom}</div><Tag color={EC[l.Etat]}>{l.Etat}</Tag>{l["Priorité"]&&<Tag color={PC[l["Priorité"]]}>{l["Priorité"]}</Tag>}<Avatar uid={userIds(l["Assigned To"])[0]} size={18}/><span style={{fontSize:11,color:d<0?"#DC2626":d<=3?"#D97706":"#999",fontWeight:600,minWidth:30,textAlign:"right"}}>{l["date:Deadline:start"]?.slice(5)||"—"}</span>
-              </div>})}
-            </div>}
-            {sFac.length>0&&<div style={{marginTop:12}}><div style={{fontSize:11,fontWeight:700,color:"#16A34A",textTransform:"uppercase",marginBottom:6}}>💶 Factures ({sFac.length} · {fmt(sCA)})</div>
-              {sFac.map(f=><div key={f.url} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:T.bg,borderRadius:6,marginBottom:4,fontSize:12}}>
-                <div style={{flex:1,fontWeight:600}}>{f.Nom}</div><Tag color={EC[f["État"]]}>{f["État"]}</Tag><span style={{fontWeight:700}}>{f.Montant?fmt(f.Montant):"—"}</span>
-              </div>)}
-            </div>}
-            {sReuAVenir.length>0&&<div style={{marginTop:12}}><div style={{fontSize:11,fontWeight:700,color:"#7C3AED",textTransform:"uppercase",marginBottom:6}}>📅 Réunions ({sReuAVenir.length})</div>
-              {sReuAVenir.slice(0,3).map(r=><div key={r.url} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:T.bg,borderRadius:6,marginBottom:4,fontSize:12}}>
-                <div style={{flex:1,fontWeight:600}}>{r.Nom}</div><Tag color={r.Type==="Client"?"#2563EB":"#7C3AED"}>{r.Type}</Tag><span style={{color:"#999"}}>{r["date:Date:start"]}</span>
-              </div>)}
-            </div>}
-          </div>}
-        </div>})}
-    </div>
 
     {/* ══ CALENDRIER + GRAPHIQUES + COLLABORATEURS ══ */}
     {(() => {
@@ -330,6 +277,61 @@ function DashboardView({dbs}){
         </div>
       </div>;
     })()}
+
+    {/* ══ PAR SOCIÉTÉ ══ */}
+    <h3 style={{margin:"0 0 14px",fontSize:15,fontWeight:800}}>🏢 Par société</h3>
+    <div style={{display:"grid",gap:10,marginBottom:24}}>
+      {socData.map(({soc,sLivActifs,sRetard,sFac,sDos,sRisActifs,sCA,sAFact,sReuAVenir})=>{
+        const isExp=expandedSoc===soc.url;const hasIssues=sRetard.length>0||sRisActifs.some(r=>r["Sévérité"]==="Critique");
+        return <div key={soc.url} style={{background:"#fff",borderRadius:12,border:"1.5px solid "+(hasIssues?"#DC262620":T.bdr),overflow:"hidden"}}>
+          <div onClick={()=>setExpandedSoc(isExp?null:soc.url)} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 18px",cursor:"pointer",background:hasIssues?"#FEF2F240":"transparent"}}>
+            <div style={{width:42,height:42,borderRadius:10,background:"#2563EB14",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:800,color:"#2563EB",flexShrink:0}}>{(soc.Nom||"?")[0]}</div>
+            <div style={{flex:1}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}>
+                <span style={{fontSize:15,fontWeight:700}}>{soc.Nom}</span>
+                {soc.Statut&&<Badge color={soc.Statut==="Client"?"#2563EB":soc.Statut==="Prospect"?"#D97706":"#16A34A"}>{soc.Statut}</Badge>}
+                {sRetard.length>0&&<Badge color="#DC2626">{sRetard.length} retard{sRetard.length>1?"s":""}</Badge>}
+                {sRisActifs.filter(r=>r["Sévérité"]==="Critique").length>0&&<Badge color="#DC2626">🔴 critique</Badge>}
+              </div>
+              <div style={{display:"flex",gap:14,fontSize:11,color:"#999"}}>
+                <span>📋 {sLivActifs.length}</span><span>📁 {sDos.length}</span>
+                {sCA>0&&<span>💶 {fmt(sCA)}</span>}
+                {sAFact.length>0&&<span style={{color:"#D97706"}}>⏳ {sAFact.length} à fact.</span>}
+                {sReuAVenir.length>0&&<span>📅 {sReuAVenir.length}</span>}
+              </div>
+            </div>
+            <span style={{fontSize:16,color:"#ccc",transition:"transform .2s",transform:isExp?"rotate(90deg)":"rotate(0)"}}>▸</span>
+          </div>
+          {isExp&&<div style={{padding:"0 18px 16px",borderTop:"1px solid "+T.bdr}}>
+            {sRetard.length>0&&<div style={{marginTop:12}}><div style={{fontSize:11,fontWeight:700,color:"#DC2626",textTransform:"uppercase",marginBottom:6}}>⏰ En retard ({sRetard.length})</div>
+              {sRetard.map(l=><div key={l.url} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:"#FEF2F2",borderRadius:6,marginBottom:4,fontSize:12}}>
+                <div style={{flex:1,fontWeight:600}}>{l.Nom}</div><Avatar uid={userIds(l["Assigned To"])[0]} size={20}/><span style={{color:"#DC2626",fontWeight:600}}>{Math.abs(daysUntil(l["date:Deadline:start"]))}j</span>
+              </div>)}
+            </div>}
+            {sRisActifs.length>0&&<div style={{marginTop:12}}><div style={{fontSize:11,fontWeight:700,color:"#D97706",textTransform:"uppercase",marginBottom:6}}>⚠️ Risques ({sRisActifs.length})</div>
+              {sRisActifs.map(r=>{const sc=r["Sévérité"]==="Critique"?"#DC2626":r["Sévérité"]==="Attention"?"#D97706":"#2563EB";return <div key={r.url} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:T.bg,borderRadius:6,marginBottom:4,fontSize:12}}>
+                <span>{r["Sévérité"]==="Critique"?"🔴":"🟠"}</span><div style={{flex:1,fontWeight:600}}>{r.Nom}</div><Tag color={sc}>{r["Type d'alerte"]}</Tag>{r["Montant exposé (€)"]&&<span style={{fontWeight:700,color:sc}}>{fmt(r["Montant exposé (€)"])}</span>}
+              </div>})}
+            </div>}
+            {sLivActifs.length>0&&<div style={{marginTop:12}}><div style={{fontSize:11,fontWeight:700,color:"#2563EB",textTransform:"uppercase",marginBottom:6}}>📋 Livrables ({sLivActifs.length})</div>
+              {sLivActifs.sort((a,b)=>daysUntil(a["date:Deadline:start"])-daysUntil(b["date:Deadline:start"])).map(l=>{const d=daysUntil(l["date:Deadline:start"]);return <div key={l.url} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:T.bg,borderRadius:6,marginBottom:4,fontSize:12}}>
+                <div style={{flex:1,fontWeight:600}}>{l.Nom}</div><Tag color={EC[l.Etat]}>{l.Etat}</Tag>{l["Priorité"]&&<Tag color={PC[l["Priorité"]]}>{l["Priorité"]}</Tag>}<Avatar uid={userIds(l["Assigned To"])[0]} size={18}/><span style={{fontSize:11,color:d<0?"#DC2626":d<=3?"#D97706":"#999",fontWeight:600,minWidth:30,textAlign:"right"}}>{l["date:Deadline:start"]?.slice(5)||"—"}</span>
+              </div>})}
+            </div>}
+            {sFac.length>0&&<div style={{marginTop:12}}><div style={{fontSize:11,fontWeight:700,color:"#16A34A",textTransform:"uppercase",marginBottom:6}}>💶 Factures ({sFac.length} · {fmt(sCA)})</div>
+              {sFac.map(f=><div key={f.url} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:T.bg,borderRadius:6,marginBottom:4,fontSize:12}}>
+                <div style={{flex:1,fontWeight:600}}>{f.Nom}</div><Tag color={EC[f["État"]]}>{f["État"]}</Tag><span style={{fontWeight:700}}>{f.Montant?fmt(f.Montant):"—"}</span>
+              </div>)}
+            </div>}
+            {sReuAVenir.length>0&&<div style={{marginTop:12}}><div style={{fontSize:11,fontWeight:700,color:"#7C3AED",textTransform:"uppercase",marginBottom:6}}>📅 Réunions ({sReuAVenir.length})</div>
+              {sReuAVenir.slice(0,3).map(r=><div key={r.url} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:T.bg,borderRadius:6,marginBottom:4,fontSize:12}}>
+                <div style={{flex:1,fontWeight:600}}>{r.Nom}</div><Tag color={r.Type==="Client"?"#2563EB":"#7C3AED"}>{r.Type}</Tag><span style={{color:"#999"}}>{r["date:Date:start"]}</span>
+              </div>)}
+            </div>}
+          </div>}
+        </div>})}
+    </div>
+
   </div>;
 }
 
