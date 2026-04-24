@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 
 /* ══ CONFIG ══ */
@@ -348,11 +348,11 @@ function ManagerView({dbs,tab,setTab,onModal,onDetail,onDelete}){
   const PER_PAGE=25;
   const db=dbs[tab];
 
-  // Build sortable/filterable fields for current db
-  const selectFields=db?Object.entries(db.schema).filter(([,d])=>d.type==="select"||d.type==="status"):[];
-  const dateFields=db?Object.entries(db.schema).filter(([,d])=>d.type==="date"):[];
-  const personFields=db?Object.entries(db.schema).filter(([,d])=>d.type==="person"):[];
-  const hasRels=db?Object.values(db.schema).some(d=>d.type==="relation"):false;
+  // Build sortable/filterable fields for current db (memoized)
+  const selectFields=useMemo(()=>db?Object.entries(db.schema).filter(([,d])=>d.type==="select"||d.type==="status"):[],[db]);
+  const dateFields=useMemo(()=>db?Object.entries(db.schema).filter(([,d])=>d.type==="date"):[],[db]);
+  const personFields=useMemo(()=>db?Object.entries(db.schema).filter(([,d])=>d.type==="person"):[],[db]);
+  const hasRels=useMemo(()=>db?Object.values(db.schema).some(d=>d.type==="relation"):false,[db]);
 
   // Sort options per db type
   const sortOptions=[{k:"nom",l:"Nom (A→Z)"},{k:"nom_desc",l:"Nom (Z→A)"}];
@@ -371,7 +371,9 @@ function ManagerView({dbs,tab,setTab,onModal,onDetail,onDelete}){
   Object.entries(quickFilters).forEach(([field,vals])=>{if(vals&&vals.length>0)results=results.filter(r=>vals.includes(r[field]))});
 
   // Sort
-  const socName=(row)=>{const sDb=dbs.find(d=>d.name.includes("Société"));if(!sDb)return"";try{const urls=JSON.parse(row["Société 2026"]||"[]");const s=sDb.data?.find(r=>r.url===urls[0]);return s?.Nom||""}catch{return""}};
+  // Precompute société name lookup map (URL → name) — avoids JSON.parse+find per row per render
+  const socMap=useMemo(()=>{const sDb=dbs.find(d=>d.name.includes("Société"));if(!sDb)return{};const m={};(sDb.data||[]).forEach(s=>{m[s.url]=s.Nom||""});return m},[dbs]);
+  const socName=(row)=>{try{const urls=JSON.parse(row["Société 2026"]||"[]");return socMap[urls[0]]||""}catch{return""}};
   results=[...results].sort((a,b)=>{
     if(sortBy==="nom")return(a[db.titleProp]||"").localeCompare(b[db.titleProp]||"");
     if(sortBy==="nom_desc")return(b[db.titleProp]||"").localeCompare(a[db.titleProp]||"");
@@ -393,14 +395,17 @@ function ManagerView({dbs,tab,setTab,onModal,onDetail,onDelete}){
   const crd=(children,row)=><div key={row.url} style={{background:"#fff",border:"1px solid "+T.bdr,borderRadius:T.r,padding:"12px 16px"}}>{children}</div>;
   const fmt=n=>Number(n).toLocaleString("fr-FR")+" €";
 
+  // Pre-compute unique values per select field (for chips + dropdowns)
+  const chipVals=useMemo(()=>{const m={};selectFields.forEach(([n])=>{m[n]=[...new Set((db?.data||[]).map(r=>r[n]).filter(Boolean))].sort()});return m},[db,selectFields]);
+
   const sst={padding:"5px 8px",background:T.bg,border:"1px solid "+T.bdr,borderRadius:T.rs,fontSize:11,fontFamily:font,outline:"none",cursor:"pointer",color:T.txt};
 
   const renderCard=(row)=>{
-    const dn=db.name;const title=row[db.titleProp]||"Sans titre";
+    const dn=db.name;const title=row[db.titleProp]||"Sans titre";const _soc=socName(row);
 
     // ── CONTACTS ──
     if(dn.includes("Contact")){
-      const full=(row["Prénom"]||"")+" "+(row["N. Famille"]||"");const soc=socName(row);
+      const full=(row["Prénom"]||"")+" "+(row["N. Famille"]||"");const soc=_soc;
       return crd(<div style={{display:"flex",alignItems:"center",gap:12}}>
         <div style={{width:40,height:40,borderRadius:20,background:"#7C3AED18",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:700,color:"#7C3AED",flexShrink:0}}>{(row["Prénom"]||"?")[0]}{(row["N. Famille"]||"")[0]||""}</div>
         <div style={{flex:1}}>
@@ -430,7 +435,7 @@ function ManagerView({dbs,tab,setTab,onModal,onDetail,onDelete}){
     }
     // ── RÉUNIONS ──
     if(dn.includes("Réunion")){
-      const d=row["date:Date:start"];const soc=socName(row);const days=daysUntil(d);const past=days<0;
+      const d=row["date:Date:start"];const soc=_soc;const days=daysUntil(d);const past=days<0;
       return crd(<div style={{display:"flex",alignItems:"center",gap:12}}>
         <div style={{width:44,textAlign:"center",flexShrink:0,padding:"4px 0"}}>
           <div style={{fontSize:18,fontWeight:800,color:days===0?"#2563EB":past?"#999":"#111",lineHeight:1}}>{d?.slice(8,10)||"?"}</div>
@@ -463,7 +468,7 @@ function ManagerView({dbs,tab,setTab,onModal,onDetail,onDelete}){
           </div>
           <div style={{display:"flex",gap:12,fontSize:12,color:"#888",alignItems:"center"}}>
             {d&&<span style={{fontWeight:600,color:bad?"#DC2626":urg?"#D97706":"#888"}}>📅 {d} {bad?"("+Math.abs(days)+"j retard)":urg?"("+days+"j)":""}</span>}
-            {socName(row)&&<span>🏢 {socName(row)}</span>}
+            {_soc&&<span>🏢 {_soc}</span>}
           </div>
         </div><Links row={row} compact/>{acts(row,title)}
       </div>,row);
@@ -475,7 +480,7 @@ function ManagerView({dbs,tab,setTab,onModal,onDetail,onDelete}){
         <div style={{fontSize:24,flexShrink:0,width:36,textAlign:"center"}}>{tIcon}</div>
         <div style={{flex:1}}>
           <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}><span style={{fontSize:14,fontWeight:600}}>{title}</span>{row.Type&&<Badge>{row.Type}</Badge>}</div>
-          <div style={{display:"flex",gap:12,fontSize:12,color:"#888"}}>{socName(row)&&<span>🏢 {socName(row)}</span>}</div>
+          <div style={{display:"flex",gap:12,fontSize:12,color:"#888"}}>{_soc&&<span>🏢 {_soc}</span>}</div>
         </div>
         <Links row={row}/>{acts(row,title)}
       </div>,row);
@@ -490,7 +495,7 @@ function ManagerView({dbs,tab,setTab,onModal,onDetail,onDelete}){
         <div style={{flex:1}}>
           <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}><span style={{fontSize:14,fontWeight:600}}>{title}</span>{row["Année"]&&<Badge color="#D97706">{row["Année"]}</Badge>}</div>
           <div style={{display:"flex",gap:10,fontSize:11,color:"#999"}}>
-            {socName(row)&&<span>🏢 {socName(row)}</span>}
+            {_soc&&<span>🏢 {_soc}</span>}
             {nL>0&&<span>📋 {nL} livrable{nL>1?"s":""}</span>}
             {nF>0&&<span>💶 {nF} facture{nF>1?"s":""}</span>}
             {nJ>0&&<span>🎯 {nJ} jalon{nJ>1?"s":""}</span>}
@@ -509,7 +514,7 @@ function ManagerView({dbs,tab,setTab,onModal,onDetail,onDelete}){
           <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2,flexWrap:"wrap"}}><span style={{fontSize:14,fontWeight:600}}>{title}</span>{row["État"]&&<Badge color={EC[row["État"]]}>{row["État"]}</Badge>}{row.Type&&<Tag>{row.Type}</Tag>}{row.Exercice&&<Tag>{row.Exercice}</Tag>}</div>
           <div style={{display:"flex",gap:12,fontSize:12,color:"#888"}}>
             {row["date:Date de facturation:start"]&&<span>📅 {row["date:Date de facturation:start"]}</span>}
-            {socName(row)&&<span>🏢 {socName(row)}</span>}
+            {_soc&&<span>🏢 {_soc}</span>}
           </div>
         </div><Links row={row} compact/>{acts(row,title)}
       </div>,row);
@@ -527,7 +532,7 @@ function ManagerView({dbs,tab,setTab,onModal,onDetail,onDelete}){
           <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2,flexWrap:"wrap"}}><span style={{fontSize:14,fontWeight:700}}>{title}</span>{row.Gouvernance&&<Badge color="#0EA5E9">{row.Gouvernance}</Badge>}{row["Stratégie PI"]&&row["Stratégie PI"]!=="N.A"&&<Badge color="#7C3AED">{row["Stratégie PI"]}</Badge>}{row["Axe de R&DI"]&&<Tag color="#D97706">{row["Axe de R&DI"].length>30?row["Axe de R&DI"].slice(0,30)+"…":row["Axe de R&DI"]}</Tag>}</div>
           <div style={{display:"flex",gap:10,fontSize:11,color:"#999",alignItems:"center"}}>
             {row["Démarrage"]&&<span>{row["Démarrage"]} → {row["Cloture"]||"?"}</span>}
-            {socName(row)&&<span>🏢 {socName(row)}</span>}
+            {_soc&&<span>🏢 {_soc}</span>}
             {row.Objectif&&<span style={{maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>🎯 {row.Objectif}</span>}
             {row.Verrous&&<span style={{maxWidth:180,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:"#DC2626"}}>🔒 {row.Verrous}</span>}
           </div>
@@ -547,7 +552,7 @@ function ManagerView({dbs,tab,setTab,onModal,onDetail,onDelete}){
           <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2,flexWrap:"wrap"}}><span style={{fontSize:14,fontWeight:600}}>{title}</span>{row["type CI"]&&<Badge color="#7C3AED">{row["type CI"]}</Badge>}{row["Année"]&&<Badge color="#D97706">{row["Année"]}</Badge>}</div>
           <div style={{display:"flex",gap:10,fontSize:11,color:"#999",flexWrap:"wrap"}}>
             {projName&&<span>🚀 {projName}</span>}
-            {socName(row)&&<span>🏢 {socName(row)}</span>}
+            {_soc&&<span>🏢 {_soc}</span>}
             {row["Dépenses engagées"]&&<span>💰 Eng. {fmt(row["Dépenses engagées"])}</span>}
             {row["Montant CI"]&&<span>🏦 CI {fmt(row["Montant CI"])}</span>}
           </div>
@@ -571,7 +576,7 @@ function ManagerView({dbs,tab,setTab,onModal,onDetail,onDelete}){
             {row["Type d'alerte"]&&<Tag color={sevC}>{row["Type d'alerte"]}</Tag>}
           </div>
           <div style={{display:"flex",gap:12,fontSize:11,color:"#888",flexWrap:"wrap",alignItems:"center"}}>
-            {socName(row)&&<span>🏢 {socName(row)}</span>}
+            {_soc&&<span>🏢 {_soc}</span>}
             {row["Montant exposé (€)"]&&<span style={{fontWeight:700,color:sevC}}>💰 {fmt(row["Montant exposé (€)"])}</span>}
             {row["date:Date événement:start"]&&<span>📅 {row["date:Date événement:start"]}</span>}
             {dlim&&<span style={{fontWeight:600,color:overdue?"#DC2626":daysLeft<=7?"#D97706":"#888"}}>⏰ Action: {dlim} {overdue?"("+Math.abs(daysLeft)+"j retard)":daysLeft<=7?"("+daysLeft+"j)":""}</span>}
@@ -610,7 +615,7 @@ function ManagerView({dbs,tab,setTab,onModal,onDetail,onDelete}){
         {sortOptions.map(o=><option key={o.k} value={o.k}>{o.l}</option>)}
       </select>
       {selectFields.map(([n,d])=>{
-        const vals=[...new Set((db.data||[]).map(r=>r[n]).filter(Boolean))].sort();
+        const vals=chipVals[n]||[];
         if(vals.length===0)return null;
         return <select key={n} value={filters[n]||""} onChange={e=>{setFilters(p=>({...p,[n]:e.target.value}));setPage(0)}} style={{...sst,color:filters[n]?T.pri:"#999"}}>
           <option value="">{n}</option>
@@ -625,7 +630,7 @@ function ManagerView({dbs,tab,setTab,onModal,onDetail,onDelete}){
     {/* Quick filter chips for select/status fields */}
     {selectFields.length>0&&<div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"flex-start"}}>
       {selectFields.map(([fieldName,fieldDef])=>{
-        const vals=[...new Set((db.data||[]).map(r=>r[fieldName]).filter(Boolean))].sort();
+        const vals=chipVals[fieldName]||[];
         if(vals.length===0||vals.length>10)return null;
         const active=quickFilters[fieldName]||[];
         return <div key={fieldName} style={{display:"flex",gap:3,alignItems:"center",flexWrap:"wrap"}}>
