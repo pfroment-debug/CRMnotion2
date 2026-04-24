@@ -89,7 +89,7 @@ function KPI({label,value,sub,color,icon}){return <div style={{background:"#fff"
 /* ══════════════════════════════════════
    DASHBOARD VIEW
    ══════════════════════════════════════ */
-function DashboardView({dbs}){
+function DashboardView({dbs,crmUser}){
   const[userView,setUserView]=useState(null);
   const[calMonth,setCalMonth]=useState(new Date().getMonth());
   const[calYear,setCalYear]=useState(new Date().getFullYear());
@@ -153,6 +153,11 @@ function DashboardView({dbs}){
   }
 
   return <div>
+    {crmUser&&<div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16,padding:"10px 16px",background:(USERS.find(u=>u.id===crmUser)?.color||"#999")+"10",borderRadius:10,border:"1.5px solid "+(USERS.find(u=>u.id===crmUser)?.color||"#999")+"30"}}>
+      <Avatar uid={crmUser} size={28}/>
+      <div><div style={{fontSize:14,fontWeight:700,color:USERS.find(u=>u.id===crmUser)?.color}}>Vue personnelle — {USERS.find(u=>u.id===crmUser)?.name}</div>
+      <div style={{fontSize:11,color:"#888"}}>Livrables, réunions et dossiers assignés à {USERS.find(u=>u.id===crmUser)?.short}</div></div>
+    </div>}
     {/* KPIs */}
     <div style={{display:"flex",gap:10,marginBottom:20,flexWrap:"wrap"}}>
       <KPI label="Clients" value={clients.length} icon="🏢" color="#2563EB"/><KPI label="Dossiers" value={dossiers.length} icon="📁"/><KPI label="Réunions" value={reunionsAVenir.length} icon="📅" color="#7C3AED"/><KPI label="Livrables actifs" value={livrables.filter(l=>l.Etat!=="Terminé"&&l.Etat!=="Annulé").length} icon="📋" color="#D97706"/><KPI label="En retard" value={livRetard.length} color={livRetard.length?"#DC2626":"#16A34A"} icon="⚠️"/><KPI label="Risques" value={risquesActifs.length} color={risquesCritiques.length?"#DC2626":risquesActifs.length?"#D97706":"#16A34A"} sub={risquesCritiques.length?risquesCritiques.length+" critique(s)":undefined} icon="🚨"/><KPI label="CA total" value={fmt(caTotal)} sub={caPaye?fmt(caPaye)+" encaissé":undefined} icon="💶" color="#16A34A"/>
@@ -347,7 +352,9 @@ function ManagerView({dbs,tab,setTab,onModal,onDetail,onDelete}){
   const[quickFilters,setQuickFilters]=useState({});
   const[collapsed,setCollapsed]=useState({});
   const[page,setPage]=useState(0);
-  const PER_PAGE=25;
+  const[viewMode,setViewMode]=useState("cards");
+  const[activePreset,setActivePreset]=useState(null);
+  const PER_PAGE=viewMode==="list"?50:25;
   const db=dbs[tab];
 
   // Build sortable/filterable fields for current db (memoized)
@@ -371,6 +378,31 @@ function ManagerView({dbs,tab,setTab,onModal,onDetail,onDelete}){
 
   // Apply quick filters (multi-select: show items matching ANY selected value per field)
   Object.entries(quickFilters).forEach(([field,vals])=>{if(vals&&vals.length>0)results=results.filter(r=>vals.includes(r[field]))});
+
+  // Apply preset filters
+  if(activePreset==="actifs"){
+    results=results.filter(r=>{
+      const etat=r.Etat||r["État"]||r.Statut||"";
+      return etat&&etat!=="Terminé"&&etat!=="Annulé"&&etat!=="Payé"&&etat!=="Classé sans suite"&&etat!=="Résolu"&&etat!=="annulé"&&etat!=="réalisé";
+    });
+  }
+  if(activePreset==="retard"){
+    results=results.filter(r=>{
+      const etat=r.Etat||r["État"]||r.Statut||"";
+      if(etat==="Terminé"||etat==="Annulé"||etat==="Payé"||etat==="Classé sans suite"||etat==="Résolu"||etat==="annulé"||etat==="réalisé")return false;
+      const d=r["date:Deadline:start"]||r["date:Date:start"]||r["date:Date limite action:start"]||r["date:Date de facturation:start"]||"";
+      return d&&daysUntil(d)<0;
+    });
+  }
+  if(activePreset==="semaine"){
+    results=results.filter(r=>{
+      const d=r["date:Deadline:start"]||r["date:Date:start"]||r["date:Date limite action:start"]||r["date:Date de facturation:start"]||"";
+      if(!d)return false;const days=daysUntil(d);return days>=0&&days<=7;
+    });
+  }
+  if(activePreset==="clients"&&db?.name.includes("Société"))results=results.filter(r=>r.Statut==="Client");
+  if(activePreset==="prospects"&&db?.name.includes("Société"))results=results.filter(r=>r.Statut==="Prospect");
+  if(activePreset==="partenaires"&&db?.name.includes("Société"))results=results.filter(r=>r.Statut==="Partenaire");
 
   // Sort
   // Precompute société name lookup map (URL → name) — avoids JSON.parse+find per row per render
@@ -608,11 +640,19 @@ function ManagerView({dbs,tab,setTab,onModal,onDetail,onDelete}){
   return <div>
     {/* Tabs */}
     <div style={{display:"flex",gap:0,overflowX:"auto",marginBottom:12}}>
-      {dbs.map((d,i)=><button key={i} onClick={()=>{setTab(i);setSearch("");setFilters({});setQuickFilters({});setSortBy(dbs[i]&&(dbs[i].name.includes("Dossier")||dbs[i].name.includes("Projet")||dbs[i].name.includes("Jalon"))?"societe":"nom");setPage(0);setCollapsed({})}} style={{padding:"7px 14px",border:"none",cursor:"pointer",background:"transparent",fontFamily:font,fontSize:12,fontWeight:tab===i?700:400,color:tab===i?COLORS[i%COLORS.length]:"#999",borderBottom:"2px solid "+(tab===i?COLORS[i%COLORS.length]:"transparent"),whiteSpace:"nowrap"}}>{d.name.replace(" 2026","").replace("Jalons annuels","Jalons")}<span style={{marginLeft:4,fontSize:10,fontWeight:600,padding:"1px 5px",borderRadius:6,background:tab===i?COLORS[i%COLORS.length]+"18":"#F0F0EC",color:tab===i?COLORS[i%COLORS.length]:"#999"}}>{d.data?.length||0}</span></button>)}
+      {dbs.map((d,i)=><button key={i} onClick={()=>{setTab(i);setSearch("");setFilters({});setQuickFilters({});setActivePreset(null);setSortBy(dbs[i]&&(dbs[i].name.includes("Dossier")||dbs[i].name.includes("Projet")||dbs[i].name.includes("Jalon"))?"societe":"nom");setPage(0);setCollapsed({})}} style={{padding:"7px 14px",border:"none",cursor:"pointer",background:"transparent",fontFamily:font,fontSize:12,fontWeight:tab===i?700:400,color:tab===i?COLORS[i%COLORS.length]:"#999",borderBottom:"2px solid "+(tab===i?COLORS[i%COLORS.length]:"transparent"),whiteSpace:"nowrap"}}>{d.name.replace(" 2026","").replace("Jalons annuels","Jalons")}<span style={{marginLeft:4,fontSize:10,fontWeight:600,padding:"1px 5px",borderRadius:6,background:tab===i?COLORS[i%COLORS.length]+"18":"#F0F0EC",color:tab===i?COLORS[i%COLORS.length]:"#999"}}>{d.data?.length||0}</span></button>)}
     </div>
-    {/* Toolbar: search + sort + filters */}
+    {/* Segment tabs for Société */}
+    {db?.name.includes("Société")&&<div style={{display:"flex",gap:0,marginBottom:10,background:"#F8F8F6",borderRadius:8,padding:2}}>
+      {[{k:null,l:"Tous",c:"#555"},{k:"clients",l:"Clients",c:"#2563EB"},{k:"prospects",l:"Prospects",c:"#D97706"},{k:"partenaires",l:"Partenaires",c:"#16A34A"}].map(p=><button key={p.k||"all"} onClick={()=>{setActivePreset(activePreset===p.k?null:p.k);setPage(0)}} style={{padding:"6px 16px",border:"none",borderRadius:6,cursor:"pointer",fontFamily:font,fontSize:12,fontWeight:activePreset===p.k?700:400,background:activePreset===p.k?"#fff":"transparent",color:activePreset===p.k?p.c:"#999",boxShadow:activePreset===p.k?"0 1px 3px #00000012":"none",transition:"all .15s"}}>{p.l} <span style={{fontSize:10,opacity:.7}}>({p.k===null?(db.data||[]).length:p.k==="clients"?(db.data||[]).filter(r=>r.Statut==="Client").length:p.k==="prospects"?(db.data||[]).filter(r=>r.Statut==="Prospect").length:(db.data||[]).filter(r=>r.Statut==="Partenaire").length})</span></button>)}
+    </div>}
+    {/* Smart preset filters */}
+    {!db?.name.includes("Société")&&!db?.name.includes("Contact")&&<div style={{display:"flex",gap:4,marginBottom:10,flexWrap:"wrap"}}>
+      {[{k:"actifs",l:"🟢 Actifs",desc:"En cours uniquement"},{k:"retard",l:"🔴 En retard",desc:"Deadline dépassée"},{k:"semaine",l:"📅 Cette semaine",desc:"7 prochains jours"}].map(p=><button key={p.k} onClick={()=>{setActivePreset(activePreset===p.k?null:p.k);setPage(0)}} title={p.desc} style={{padding:"5px 12px",borderRadius:8,border:"1.5px solid "+(activePreset===p.k?T.pri:T.bdr),background:activePreset===p.k?T.pri+"10":"#fff",color:activePreset===p.k?T.pri:"#777",fontSize:12,fontWeight:activePreset===p.k?700:500,cursor:"pointer",fontFamily:font,transition:"all .15s"}}>{p.l}</button>)}
+    </div>}
+    {/* Toolbar: search + sort + filters + view toggle */}
     <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:14,flexWrap:"wrap"}}>
-      <input value={search} onChange={e=>{setSearch(e.target.value);setPage(0)}} placeholder="🔍 Rechercher..." style={{...sst,width:150,padding:"6px 10px"}}/>
+      <input value={search} onChange={e=>{setSearch(e.target.value);setPage(0)}} placeholder="🔍 Rechercher..." style={{...sst,flex:"0 1 220px",padding:"8px 12px",fontSize:13}}/>
       <select value={sortBy} onChange={e=>{setSortBy(e.target.value);setPage(0)}} style={sst}>
         {sortOptions.map(o=><option key={o.k} value={o.k}>{o.l}</option>)}
       </select>
@@ -624,9 +664,13 @@ function ManagerView({dbs,tab,setTab,onModal,onDetail,onDelete}){
           {vals.map(v=><option key={v} value={v}>{v}</option>)}
         </select>;
       })}
-      {(Object.values(filters).some(Boolean)||Object.values(quickFilters).some(v=>v?.length>0))&&<button onClick={()=>{setFilters({});setQuickFilters({});setPage(0)}} style={{...sst,color:T.dng,border:"1px solid "+T.dng+"40"}}>✕ Filtres</button>}
+      {(Object.values(filters).some(Boolean)||Object.values(quickFilters).some(v=>v?.length>0)||activePreset)&&<button onClick={()=>{setFilters({});setQuickFilters({});setActivePreset(null);setPage(0)}} style={{...sst,color:T.dng,border:"1px solid "+T.dng+"40"}}>✕ Filtres</button>}
       <div style={{flex:1}}/>
-      <span style={{fontSize:11,color:"#999"}}>{results.length} résultat{results.length>1?"s":""}</span>
+      <div style={{display:"flex",gap:2,background:"#F0F0EC",borderRadius:6,padding:1}}>
+        <button onClick={()=>setViewMode("cards")} style={{padding:"3px 8px",border:"none",borderRadius:5,cursor:"pointer",background:viewMode==="cards"?"#fff":"transparent",fontSize:11,fontFamily:font,color:viewMode==="cards"?T.txt:"#999",boxShadow:viewMode==="cards"?"0 1px 2px #00000008":"none"}}>☐ Cartes</button>
+        <button onClick={()=>setViewMode("list")} style={{padding:"3px 8px",border:"none",borderRadius:5,cursor:"pointer",background:viewMode==="list"?"#fff":"transparent",fontSize:11,fontFamily:font,color:viewMode==="list"?T.txt:"#999",boxShadow:viewMode==="list"?"0 1px 2px #00000008":"none"}}>☰ Liste</button>
+      </div>
+      <span style={{fontSize:11,color:"#999"}}>{results.length} résultat{results.length>1?"s":""}{activePreset?" (filtré)":""}</span>
       {db&&<Btn size="sm" onClick={()=>onModal({mode:"create",type:tab,data:{}})}>+ Nouveau</Btn>}
     </div>
     {/* Quick filter chips for select/status fields */}
@@ -661,9 +705,33 @@ function ManagerView({dbs,tab,setTab,onModal,onDetail,onDelete}){
         <span style={{fontSize:11,color:"#999",marginLeft:8}}>Page {page+1}/{totalPages}</span>
       </div>:null;
 
+      // Compact list row renderer
+      const listRow=(row)=>{
+        const title=row[db.titleProp]||"Sans titre";const _s=socName(row);
+        const dateKey=Object.keys(row).find(k=>k.startsWith("date:")&&k.endsWith(":start")&&row[k]);
+        const dateVal=dateKey?row[dateKey]:"";const days=dateVal?daysUntil(dateVal):null;
+        const etat=row.Etat||row["État"]||row.Statut||"";
+        const prio=row["Priorité"]||"";
+        const assignee=row["Assigned To"]||row.Participants||"";
+        const uid=userIds(assignee)[0];
+        return <div key={row.url} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:"#fff",border:"1px solid "+T.bdr,borderRadius:6,fontSize:12,cursor:"pointer"}} onClick={()=>hasRels?onDetail({entry:row,db}):null}>
+          {uid&&<Avatar uid={uid} size={20}/>}
+          <span style={{fontWeight:600,flex:"0 0 auto",maxWidth:280,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{title}</span>
+          {etat&&<Badge color={EC[etat]||"#999"}>{etat}</Badge>}
+          {prio&&<Badge color={PC[prio]||"#999"}>{prio}</Badge>}
+          {_s&&<span style={{color:"#2563EB",fontSize:11,flex:"0 0 auto"}}>🏢 {_s}</span>}
+          <div style={{flex:1}}/>
+          {dateVal&&<span style={{fontSize:11,fontWeight:600,color:days!==null&&days<0?"#DC2626":days!==null&&days<=3?"#D97706":"#999",flexShrink:0}}>{dateVal.slice(5)}{days!==null&&days<0?" ("+Math.abs(days)+"j)":""}</span>}
+          <div style={{display:"flex",gap:2,flexShrink:0}}>
+            <Btn variant="gh" size="sm" onClick={(e)=>{e.stopPropagation();onModal({mode:"edit",type:tab,data:{...row}})}}>✏️</Btn>
+            <Btn variant="gh" size="sm" onClick={(e)=>{e.stopPropagation();onDelete({url:row.url,name:title})}}>🗑</Btn>
+          </div>
+        </div>;
+      };
+
       return <>
         <PaginationBar/>
-        {results.length===0?<div style={{textAlign:"center",padding:40,color:"#999"}}>{search||Object.values(filters).some(Boolean)?"Aucun résultat pour ces critères":"Aucune entrée"}</div>:
+        {results.length===0?<div style={{textAlign:"center",padding:40,color:"#999"}}>{search||Object.values(filters).some(Boolean)||activePreset?"Aucun résultat pour ces critères":"Aucune entrée"}</div>:
         grouped?<div style={{display:"grid",gap:12}}>
           {groups.map(([socLabel,items])=>{const isOpen=!collapsed[socLabel];return <div key={socLabel}>
             <div onClick={()=>setCollapsed(p=>({...p,[socLabel]:!p[socLabel]}))} style={{display:"flex",alignItems:"center",gap:8,marginBottom:isOpen?8:0,cursor:"pointer",userSelect:"none",padding:"6px 8px",background:"#F8F8F6",borderRadius:8}}>
@@ -672,10 +740,10 @@ function ManagerView({dbs,tab,setTab,onModal,onDetail,onDelete}){
               <span style={{fontSize:13,fontWeight:700,flex:1}}>{socLabel}</span>
               <span style={{fontSize:11,color:"#999",fontWeight:600}}>{items.length} élément{items.length>1?"s":""}</span>
             </div>
-            {isOpen&&<div style={{display:"grid",gap:5,paddingLeft:36}}>{items.map(renderCard)}</div>}
+            {isOpen&&<div style={{display:"grid",gap:viewMode==="list"?3:5,paddingLeft:36}}>{items.map(viewMode==="list"?listRow:renderCard)}</div>}
           </div>})}
         </div>:
-        <div style={{display:"grid",gap:6}}>{paged.map(renderCard)}</div>}
+        <div style={{display:"grid",gap:viewMode==="list"?3:6}}>{paged.map(viewMode==="list"?listRow:renderCard)}</div>}
         <PaginationBar/>
       </>;
     })()}
@@ -844,6 +912,7 @@ function DetailView({entry,db,allDbs,onClose,onOpenModal,onDeleteEntry}){
 export default function App(){
   const[dbs,setDbs]=useState(CFG.map(c=>({...c,data:[]})));
   const[mode,setMode]=useState("dashboard");
+  const[crmUser,setCrmUser]=useState(null); // null=Général, or user id
   const[tab,setTab]=useState(0);const[loading,setLoading]=useState(true);const[busy,setBusy]=useState(false);
   const[modal,setModal]=useState(null);const[toast,setToast]=useState(null);const[confirm,setConfirm]=useState(null);const[detail,setDetail]=useState(null);
 
@@ -857,6 +926,23 @@ export default function App(){
     setDbs(results);setLoading(false);
   },[]);
   useEffect(()=>{loadData()},[loadData]);
+
+  // Filter data by selected CRM user (person fields: Assigned To, Participants, Personne)
+  const personFieldNames=["Assigned To","Participants","Personne"];
+  const filteredDbs=useMemo(()=>{
+    if(!crmUser)return dbs;
+    return dbs.map(db=>{
+      const hasPersonField=personFieldNames.some(pf=>db.schema[pf]?.type==="person");
+      if(!hasPersonField)return db;
+      const filtered=(db.data||[]).filter(row=>{
+        return personFieldNames.some(pf=>{
+          const raw=row[pf];if(!raw)return false;
+          try{return JSON.parse(raw).some(u=>u.replace("user://","")===crmUser)}catch{return false}
+        });
+      });
+      return{...db,data:filtered};
+    });
+  },[dbs,crmUser]);
 
   const pid=(url)=>(url||"").replace("notion://","");
   const handleSave=async(data)=>{const db=dbs[modal.type];if(!db)return;setBusy(true);
@@ -885,9 +971,14 @@ export default function App(){
           <Btn variant="sec" size="sm" onClick={loadData} loading={loading}>🔄</Btn>
         </div>
       </div>
+      {/* ── CRM User Selector ── */}
+      <div style={{display:"flex",gap:0,paddingBottom:10,overflowX:"auto"}}>
+        <button onClick={()=>setCrmUser(null)} style={{padding:"6px 16px",border:"none",borderBottom:"2.5px solid "+(crmUser===null?"#111":"transparent"),cursor:"pointer",fontFamily:font,fontSize:12,fontWeight:crmUser===null?700:500,background:"transparent",color:crmUser===null?"#111":"#999",transition:"all .15s"}}>🏢 CRM Général</button>
+        {USERS.map(u=><button key={u.id} onClick={()=>setCrmUser(crmUser===u.id?null:u.id)} style={{padding:"6px 16px",border:"none",borderBottom:"2.5px solid "+(crmUser===u.id?u.color:"transparent"),cursor:"pointer",fontFamily:font,fontSize:12,fontWeight:crmUser===u.id?700:500,background:"transparent",color:crmUser===u.id?u.color:"#999",display:"flex",alignItems:"center",gap:6,transition:"all .15s"}}><Avatar uid={u.id} size={20}/> CRM {u.short}</button>)}
+      </div>
     </header>
     <main style={{padding:"20px 28px",maxWidth:1100,margin:"0 auto"}}>
-      {mode==="dashboard"?<DashboardView dbs={dbs}/>:<ManagerView dbs={dbs} tab={tab} setTab={setTab} onModal={setModal} onDetail={setDetail} onDelete={setConfirm}/>}
+      {mode==="dashboard"?<DashboardView dbs={filteredDbs} crmUser={crmUser}/>:<ManagerView dbs={filteredDbs} tab={tab} setTab={setTab} onModal={setModal} onDetail={setDetail} onDelete={setConfirm}/>}
     </main>
     {modal&&dbs[modal.type]&&<Overlay onClose={()=>!busy&&setModal(null)}><DynForm db={dbs[modal.type]} allDbs={dbs} modal={modal} onClose={()=>setModal(null)} busy={busy} onSave={handleSave}/></Overlay>}
     {detail&&<Overlay onClose={()=>setDetail(null)}><DetailView entry={detail.entry} db={detail.db} allDbs={dbs} onClose={()=>setDetail(null)} onOpenModal={setModal} onDeleteEntry={(url,name)=>{setDetail(null);setConfirm({url,name})}}/></Overlay>}
