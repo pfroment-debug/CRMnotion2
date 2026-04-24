@@ -84,16 +84,13 @@ function Links({row,compact}){return <div style={{display:"inline-flex",gap:4,al
 function Avatar({uid,size}){const s=size||28;const u=USERS.find(x=>x.id===uid);const c=u?.color||"#999";return <div style={{width:s,height:s,borderRadius:s/2,background:c+"20",color:c,display:"flex",alignItems:"center",justifyContent:"center",fontSize:s*.4,fontWeight:700,flexShrink:0}} title={u?.name}>{u?.short?.[0]||"?"}</div>}
 
 /* ══ KPI CARD ══ */
-function KPI({label,value,sub,color,icon,accent}){const c=color||"#64748B";return <div style={{background:"#fff",borderRadius:14,padding:"14px 16px",border:"1px solid #F0EFEC",flex:1,minWidth:120,position:"relative",overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
-  <div style={{position:"absolute",top:0,left:0,right:0,height:3,background:`linear-gradient(90deg, ${c}, ${c}88)`}}/>
-  <div style={{display:"flex",alignItems:"flex-start",gap:10}}>
-    <div style={{width:36,height:36,borderRadius:10,background:c+"10",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>{icon}</div>
-    <div style={{flex:1,minWidth:0}}>
-      <div style={{fontSize:10,fontWeight:700,color:"#94A3B8",textTransform:"uppercase",letterSpacing:.8,marginBottom:4,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{label}</div>
-      <div style={{fontSize:24,fontWeight:800,color:c,lineHeight:1,letterSpacing:-.5}}>{value}</div>
-      {sub&&<div style={{fontSize:10,color:"#94A3B8",marginTop:4,fontWeight:500}}>{sub}</div>}
-    </div>
+function KPI({label,value,sub,color,icon}){const c=color||"#64748B";return <div style={{background:"#fff",borderRadius:14,padding:"12px 14px",border:"1px solid #F0EFEC",flex:1,minWidth:110,boxShadow:"0 1px 3px rgba(0,0,0,.04)",textAlign:"center"}}>
+  <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:5,marginBottom:8}}>
+    <span style={{fontSize:14}}>{icon}</span>
+    <span style={{fontSize:10,fontWeight:700,color:"#94A3B8",textTransform:"uppercase",letterSpacing:.6,whiteSpace:"nowrap"}}>{label}</span>
   </div>
+  <div style={{fontSize:26,fontWeight:800,color:c,lineHeight:1,letterSpacing:-.5,whiteSpace:"nowrap"}}>{value}</div>
+  {sub&&<div style={{fontSize:10,color:"#94A3B8",marginTop:5,fontWeight:500}}>{sub}</div>}
 </div>}
 
 /* ══════════════════════════════════════
@@ -123,7 +120,7 @@ function DashboardView({dbs,crmUser}){
 
   const userLiv=(uid)=>livrables.filter(l=>userIds(l["Assigned To"]).includes(uid));
   const userUrg=(uid)=>userLiv(uid).filter(l=>{const d=daysUntil(l["date:Deadline:start"]);return d<=3&&l.Etat!=="Terminé"&&l.Etat!=="Annulé"});
-  const fmt=(n)=>Number(n).toLocaleString("fr-FR")+" €";
+  const fmt=(n)=>n>=10000?Math.round(n/1000).toLocaleString("fr-FR")+" K€":Number(n).toLocaleString("fr-FR")+" €";
 
   const livRetard=livrables.filter(l=>daysUntil(l["date:Deadline:start"])<0&&l.Etat!=="Terminé"&&l.Etat!=="Annulé").sort((a,b)=>daysUntil(a["date:Deadline:start"])-daysUntil(b["date:Deadline:start"]));
   const livUrgent=livrables.filter(l=>{const d=daysUntil(l["date:Deadline:start"]);return d>=0&&d<=3&&l.Etat!=="Terminé"&&l.Etat!=="Annulé"});
