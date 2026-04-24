@@ -843,7 +843,7 @@ function DynForm({db,allDbs,modal,onClose,busy,onSave}){
     if(def.type==="place")return <Fld key={name} label={"📍 "+name} value={form["place:"+name]} onChange={v=>set("place:"+name,v)} placeholder="Adresse"/>;
     if(def.type==="date")return <Fld key={name} label={"📅 "+name} value={form["date:"+name]} onChange={v=>setForm(p=>({...p,["date:"+name]:v}))} type="date"/>;
     if(def.type==="person")return <div key={name} style={{display:"flex",flexDirection:"column",gap:4}}><label style={{fontSize:11,fontWeight:600,color:"#999"}}>👤 {name}</label><select value={form["person:"+name]||""} onChange={e=>set("person:"+name,e.target.value)} style={{width:"100%",padding:"8px 10px",background:T.bg,border:"1.5px solid "+T.bdr,borderRadius:T.rs,fontSize:13,fontFamily:font,outline:"none"}}><option value="">—</option>{USERS.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}</select></div>;
-    if(def.type===="select"||def.type==="status")return <Fld key={name} label={name} value={form[name]} onChange={v=>setForm(p=>({...p,[name]:v}))} type="select" options={(def.options||[]).map(o=>o.name)}/>;
+    if(def.type==="select"||def.type==="status")return <Fld key={name} label={name} value={form[name]} onChange={v=>setForm(p=>({...p,[name]:v}))} type="select" options={(def.options||[]).map(o=>o.name)}/>;
     if(def.type==="checkbox")return <div key={name} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0"}}>
       <label style={{fontSize:11,fontWeight:600,color:"#999",flex:1}}>{name}</label>
       <button onClick={()=>set(name,form[name]==="__YES__"?"":"__YES__")} style={{width:40,height:22,borderRadius:11,border:"none",cursor:"pointer",position:"relative",background:form[name]==="__YES__"?"#16A34A":"#D1D5DB",transition:"background .2s"}}>
