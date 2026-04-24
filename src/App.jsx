@@ -156,7 +156,7 @@ function DashboardView({dbs,crmUser}){
     {crmUser&&<div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16,padding:"10px 16px",background:(USERS.find(u=>u.id===crmUser)?.color||"#999")+"10",borderRadius:10,border:"1.5px solid "+(USERS.find(u=>u.id===crmUser)?.color||"#999")+"30"}}>
       <Avatar uid={crmUser} size={28}/>
       <div><div style={{fontSize:14,fontWeight:700,color:USERS.find(u=>u.id===crmUser)?.color}}>Vue personnelle — {USERS.find(u=>u.id===crmUser)?.name}</div>
-      <div style={{fontSize:11,color:"#888"}}>Livrables, réunions et dossiers assignés à {USERS.find(u=>u.id===crmUser)?.short}</div></div>
+      <div style={{fontSize:11,color:"#888"}}>Toutes les données liées à {USERS.find(u=>u.id===crmUser)?.short} (livrables, réunions, dossiers, sociétés, factures, risques...)</div></div>
     </div>}
     {/* KPIs */}
     <div style={{display:"flex",gap:10,marginBottom:20,flexWrap:"wrap"}}>
@@ -927,11 +927,12 @@ export default function App(){
   },[]);
   useEffect(()=>{loadData()},[loadData]);
 
-  // Filter data by selected CRM user (person fields: Assigned To, Participants, Personne)
+  // Filter data by selected CRM user — cascading through société relations
   const personFieldNames=["Assigned To","Participants","Personne"];
   const filteredDbs=useMemo(()=>{
     if(!crmUser)return dbs;
-    return dbs.map(db=>{
+    // Step 1: Filter databases WITH person fields by user
+    const step1=dbs.map(db=>{
       const hasPersonField=personFieldNames.some(pf=>db.schema[pf]?.type==="person");
       if(!hasPersonField)return db;
       const filtered=(db.data||[]).filter(row=>{
@@ -941,6 +942,34 @@ export default function App(){
         });
       });
       return{...db,data:filtered};
+    });
+    // Step 2: Collect all société URLs from user's filtered items
+    const userSocUrls=new Set();
+    step1.forEach(db=>{
+      if(!personFieldNames.some(pf=>db.schema[pf]?.type==="person"))return;
+      (db.data||[]).forEach(row=>{
+        try{const urls=JSON.parse(row["Société 2026"]||"[]");urls.forEach(u=>userSocUrls.add(u))}catch{}
+      });
+    });
+    // Step 3: Filter ALL other databases by société relation (cascade)
+    return step1.map(db=>{
+      const hasPersonField=personFieldNames.some(pf=>db.schema[pf]?.type==="person");
+      if(hasPersonField)return db; // already filtered in step 1
+      if(db.name.includes("Société")){
+        if(userSocUrls.size===0)return{...db,data:[]};
+        return{...db,data:(db.data||[]).filter(r=>userSocUrls.has(r.url))};
+      }
+      if(db.name.includes("Contact")){
+        if(userSocUrls.size===0)return{...db,data:[]};
+        return{...db,data:(db.data||[]).filter(r=>{
+          try{const urls=JSON.parse(r["Société 2026"]||"[]");return urls.length===0||urls.some(u=>userSocUrls.has(u))}catch{return false}
+        })};
+      }
+      if(!db.schema["Société 2026"])return db;
+      if(userSocUrls.size===0)return{...db,data:[]};
+      return{...db,data:(db.data||[]).filter(row=>{
+        try{const urls=JSON.parse(row["Société 2026"]||"[]");return urls.length===0||urls.some(u=>userSocUrls.has(u))}catch{return false}
+      })};
     });
   },[dbs,crmUser]);
 
