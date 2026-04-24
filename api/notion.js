@@ -46,8 +46,7 @@ function buildNotionProps(data, schema) {
   const props = {};
   for (const [key, val] of Object.entries(data)) {
     // Handle checkboxes first (empty string = unchecked)
-    const s = schema?.[key];
-    if (s?.type === 'checkbox') {
+    if (schema?.[key]?.type === 'checkbox') {
       props[key] = { checkbox: val === true || val === '__YES__' };
       continue;
     }
