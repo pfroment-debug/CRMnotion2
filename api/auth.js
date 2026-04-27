@@ -69,8 +69,10 @@ export default async function handler(req, res) {
       clientIdStart: (CLIENT_ID()||'').slice(0,20),
       hasClientSecret: !!CLIENT_SECRET(),
       hasAuthSecret: !!process.env.AUTH_SECRET,
+      hasNotionToken: !!process.env.NOTION_TOKEN,
       appUrl: APP_URL(),
-      redirectUri: `${APP_URL()}/api/auth?action=callback`
+      redirectUri: `${APP_URL()}/api/auth?action=callback`,
+      allEnvKeys: Object.keys(process.env).filter(k => k.startsWith('GOOGLE') || k.startsWith('AUTH') || k.startsWith('NOTION') || k.startsWith('APP'))
     });
   }
 
