@@ -272,6 +272,7 @@ function DashboardView({dbs,crmUser}){
   const[calMonth,setCalMonth]=useState(new Date().getMonth());
   const[calYear,setCalYear]=useState(new Date().getFullYear());
   const[expandedSoc,setExpandedSoc]=useState(null);
+  const[selectedDay,setSelectedDay]=useState(null);
 
   const livrables=dbs.find(d=>d.name.includes("Livrable"))?.data||[];
   const factures=dbs.find(d=>d.name.includes("Facture"))?.data||[];
@@ -369,38 +370,41 @@ function DashboardView({dbs,crmUser}){
         <InboxPanel emails={inboxEmails} setEmails={setInboxEmails} dbs={dbs}/>
         {inboxEmails.length===0&&<div style={{textAlign:"center",padding:20,color:"#ccc",fontSize:12}}>Aucun email récent</div>}
       </div>
-      {/* Colonne droite: Aujourd'hui + semaine */}
+      {/* Colonne droite: Aujourd'hui + semaine (fusionné Google + CRM) */}
       <div style={{background:"#fff",borderRadius:14,border:"1px solid #F0EFEC",padding:16,maxHeight:400,overflowY:"auto"}}>
         <h3 style={{margin:"0 0 12px",fontSize:14,fontWeight:800,color:"#2563EB"}}>📅 Aujourd'hui</h3>
-        {/* Google Calendar events today */}
-        {calEvents.filter(e=>e.start?.slice(0,10)===todayStr).map((ev,i)=><div key={"gc"+i} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:"#EFF6FF",borderRadius:6,marginBottom:4,cursor:"pointer"}} onClick={()=>ev.link&&window.open(ev.link,"_blank")}>
-          <span style={{fontSize:11,fontWeight:700,color:"#2563EB",minWidth:35}}>{ev.start?.includes("T")?ev.start.slice(11,16):"—"}</span>
-          <span style={{fontSize:12,fontWeight:600,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.title}</span>
-          {ev.attendees?.length>0&&<span style={{fontSize:10,color:"#999"}}>👤{ev.attendees.length}</span>}
-        </div>)}
-        {/* CRM réunions today */}
-        {reunToday.map(r=><div key={r.url} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:"#F5F3FF",borderRadius:6,marginBottom:4}}>
-          <span style={{fontSize:11,fontWeight:700,color:"#7C3AED",minWidth:35}}>📅</span>
-          <span style={{fontSize:12,fontWeight:600,flex:1}}>{r.Nom}</span>
-          {r.Type&&<Tag color={r.Type==="Client"?"#2563EB":"#7C3AED"}>{r.Type}</Tag>}
-        </div>)}
-        {/* Livrables deadline today */}
-        {livToday.map(l=><div key={l.url} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:"#FFFBEB",borderRadius:6,marginBottom:4}}>
-          <span style={{fontSize:11,fontWeight:700,color:"#D97706",minWidth:35}}>📋</span>
-          <span style={{fontSize:12,fontWeight:600,flex:1}}>{l.Nom}</span>
-          <Tag color={EC[l.Etat]}>{l.Etat}</Tag>
-        </div>)}
-        {calEvents.filter(e=>e.start?.slice(0,10)===todayStr).length===0&&reunToday.length===0&&livToday.length===0&&<div style={{textAlign:"center",padding:12,color:"#ccc",fontSize:12}}>Rien de prévu aujourd'hui</div>}
+        {(()=>{
+          // Merge Google Calendar + CRM réunions + livrables for today, sorted by time
+          const todayItems=[
+            ...calEvents.filter(e=>e.start?.slice(0,10)===todayStr).map(ev=>({key:"gc-"+ev.id,time:ev.start?.includes("T")?ev.start.slice(11,16):"",title:ev.title,type:"gcal",color:"#2563EB",bg:"#EFF6FF",tag:ev.attendees?.length?"👤"+ev.attendees.length:"",onClick:()=>ev.link&&window.open(ev.link,"_blank")})),
+            ...reunToday.map(r=>({key:r.url,time:r["date:Date:start"]?.includes("T")?r["date:Date:start"].slice(11,16):"",title:r.Nom,type:"reunion",color:"#7C3AED",bg:"#F5F3FF",tag:r.Type,tagColor:r.Type==="Client"?"#2563EB":"#7C3AED"})),
+            ...livToday.map(l=>({key:l.url,time:"",title:l.Nom,type:"livrable",color:"#D97706",bg:"#FFFBEB",tag:l.Etat,tagColor:EC[l.Etat]}))
+          ].sort((a,b)=>(a.time||"99:99").localeCompare(b.time||"99:99"));
+          return todayItems.length>0?todayItems.map(item=><div key={item.key} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:item.bg,borderRadius:6,marginBottom:4,cursor:item.onClick?"pointer":"default"}} onClick={item.onClick||undefined}>
+            <span style={{fontSize:11,fontWeight:700,color:item.color,minWidth:35}}>{item.time||{gcal:"📅",reunion:"📅",livrable:"📋"}[item.type]}</span>
+            <span style={{fontSize:12,fontWeight:600,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.title}</span>
+            {item.tag&&(item.tagColor?<Tag color={item.tagColor}>{item.tag}</Tag>:<span style={{fontSize:10,color:"#999"}}>{item.tag}</span>)}
+          </div>):<div style={{textAlign:"center",padding:12,color:"#ccc",fontSize:12}}>Rien de prévu aujourd'hui</div>;
+        })()}
 
-        {/* Cette semaine (réunions à venir) */}
-        {reunWeek.length>0&&<>
-          <h3 style={{margin:"16px 0 8px",fontSize:13,fontWeight:700,color:"#7C3AED"}}>📅 Cette semaine ({reunWeek.length})</h3>
-          {reunWeek.slice(0,5).map(r=><div key={r.url} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 10px",borderRadius:6,marginBottom:3,border:"1px solid #F0EFEC"}}>
-            <span style={{fontSize:11,fontWeight:600,color:"#999",minWidth:50}}>{r["date:Date:start"]?.slice(5)}</span>
-            <span style={{fontSize:12,fontWeight:500,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.Nom}</span>
-            {r.Type&&<Tag color={r.Type==="Client"?"#2563EB":"#7C3AED"}>{r.Type}</Tag>}
-          </div>)}
-        </>}
+        {/* Cette semaine (Google Calendar + CRM réunions fusionnés) */}
+        {(()=>{
+          const calWeek=calEvents.filter(e=>{const d=e.start?.slice(0,10);return d>todayStr&&daysUntil(d)<=7});
+          const weekItems=[
+            ...calWeek.map(ev=>({key:"gc-"+ev.id,date:ev.start?.slice(5,10)||"",time:ev.start?.includes("T")?ev.start.slice(11,16):"",title:ev.title,type:"gcal",color:"#2563EB",onClick:()=>ev.link&&window.open(ev.link,"_blank")})),
+            ...reunWeek.map(r=>({key:r.url,date:r["date:Date:start"]?.slice(5,10)||"",time:r["date:Date:start"]?.includes("T")?r["date:Date:start"].slice(11,16):"",title:r.Nom,type:"reunion",color:"#7C3AED",tag:r.Type,tagColor:r.Type==="Client"?"#2563EB":"#7C3AED"}))
+          ].sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+          if(weekItems.length===0)return null;
+          return <>
+            <h3 style={{margin:"16px 0 8px",fontSize:13,fontWeight:700,color:"#7C3AED"}}>📅 Cette semaine ({weekItems.length})</h3>
+            {weekItems.slice(0,8).map(item=><div key={item.key} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 10px",borderRadius:6,marginBottom:3,border:"1px solid #F0EFEC",cursor:item.onClick?"pointer":"default"}} onClick={item.onClick||undefined}>
+              <span style={{fontSize:11,fontWeight:600,color:"#999",minWidth:38}}>{item.date}</span>
+              <span style={{fontSize:11,fontWeight:600,color:item.color,minWidth:35}}>{item.time||"—"}</span>
+              <span style={{fontSize:12,fontWeight:500,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.title}</span>
+              {item.tag&&<Tag color={item.tagColor||item.color}>{item.tag}</Tag>}
+            </div>)}
+          </>;
+        })()}
       </div>
     </div>
 
@@ -434,6 +438,9 @@ function DashboardView({dbs,crmUser}){
       const firstDay=new Date(calYear,calMonth,1).getDay();const daysInMonth=new Date(calYear,calMonth+1,0).getDate();
       const offset=(firstDay+6)%7;const MNAMES=["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];const DNAMES=["L","M","M","J","V","S","D"];
       const events={};
+      // Google Calendar events
+      calEvents.forEach(ev=>{const d=ev.start?.slice(0,10);if(d){if(!events[d])events[d]=[];events[d].push({type:"gcal",name:(ev.start?.includes("T")?ev.start.slice(11,16)+" ":"")+ev.title,color:"#2563EB",link:ev.link})}});
+      // CRM events
       reunions.forEach(r=>{const d=r["date:Date:start"];if(d){if(!events[d])events[d]=[];events[d].push({type:"reunion",name:r.Nom,color:"#7C3AED"})}});
       livrables.forEach(l=>{const d=l["date:Deadline:start"];if(d&&l.Etat!=="Terminé"&&l.Etat!=="Annulé"){if(!events[d])events[d]=[];events[d].push({type:"deadline",name:l.Nom,color:PC[l["Priorité"]]||"#D97706"})}});
       factures.forEach(f=>{const d=f["date:Date de facturation:start"];if(d){if(!events[d])events[d]=[];events[d].push({type:"facture",name:f.Nom,color:"#16A34A"})}});
@@ -451,10 +458,22 @@ function DashboardView({dbs,crmUser}){
           {DNAMES.map((d,i)=><div key={i} style={{textAlign:"center",fontSize:10,fontWeight:600,color:"#999",padding:4}}>{d}</div>)}
           {Array.from({length:offset}).map((_,i)=><div key={"e"+i}/>)}
           {Array.from({length:daysInMonth}).map((_,i)=>{const day=i+1;const dateStr=`${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;const evts=events[dateStr]||[];const isToday=dateStr===TODAY;
-            return <div key={day} style={{textAlign:"center",padding:"4px 2px",borderRadius:6,background:isToday?"#2563EB":evts.length?"#F8F8F6":"transparent",color:isToday?"#fff":"#111",fontSize:11,fontWeight:isToday?700:400,position:"relative",cursor:evts.length?"pointer":"default"}} title={evts.map(e=>e.name).join("\n")}>
-              {day}{evts.length>0&&<div style={{display:"flex",justifyContent:"center",gap:1,marginTop:1}}>{evts.slice(0,3).map((e,j)=><div key={j} style={{width:4,height:4,borderRadius:2,background:isToday?"#fff":e.color}}/>)}</div>}
+            return <div key={day} onClick={()=>evts.length&&setSelectedDay(selectedDay===dateStr?null:dateStr)} style={{textAlign:"center",padding:"4px 2px",borderRadius:6,background:selectedDay===dateStr?"#F0F9FF":isToday?"#2563EB":evts.length?"#F8F8F6":"transparent",color:isToday&&selectedDay!==dateStr?"#fff":"#111",fontSize:11,fontWeight:isToday||selectedDay===dateStr?700:400,position:"relative",cursor:evts.length?"pointer":"default",border:selectedDay===dateStr?"2px solid #2563EB":"2px solid transparent"}}>
+              {day}{evts.length>0&&<div style={{display:"flex",justifyContent:"center",gap:1,marginTop:1}}>{evts.slice(0,3).map((e,j)=><div key={j} style={{width:4,height:4,borderRadius:2,background:isToday&&selectedDay!==dateStr?"#fff":e.color}}/>)}</div>}
             </div>})}
         </div>
+        {/* Day detail panel */}
+        {selectedDay&&events[selectedDay]&&<div style={{marginTop:12,padding:12,background:"#F8FAFC",borderRadius:8,border:"1px solid #E2E8F0"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+            <span style={{fontSize:13,fontWeight:700,color:"#2563EB"}}>{new Date(selectedDay+"T12:00:00").toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})}</span>
+            <button onClick={()=>setSelectedDay(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#999"}}>✕</button>
+          </div>
+          {events[selectedDay].map((ev,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",background:"#fff",borderRadius:5,marginBottom:3,border:"1px solid #F0EFEC",cursor:ev.link?"pointer":"default"}} onClick={()=>ev.link&&window.open(ev.link,"_blank")}>
+            <div style={{width:6,height:6,borderRadius:3,background:ev.color,flexShrink:0}}/>
+            <span style={{fontSize:12,flex:1}}>{ev.name}</span>
+            <span style={{fontSize:10,color:"#999"}}>{{gcal:"Google",reunion:"Réunion",deadline:"Livrable",facture:"Facture",risque:"Risque"}[ev.type]||""}</span>
+          </div>)}
+        </div>}
       </div>;
     })()}
 
