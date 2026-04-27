@@ -15,7 +15,7 @@ const CFG=[
   {name:"Société 2026",dsId:"343dfc12-15cc-80d8-bca4-f624826c626c",dsUrl:"collection://343dfc12-15cc-806c-aec4-000b4089c60b",viewUrl:"view://343dfc12-15cc-80ba-83a4-000c8db9d508",titleProp:"Nom",schema:{"Nom":{type:"title"},"Statut":{type:"select",options:[{name:"Partenaire"},{name:"Client"},{name:"Prospect"},{name:"Fournisseur"},{name:"Autre"}]},"Lieu":{type:"place"},"Lien Drive":{type:"url"},"Contacts 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-801f-b97f-000b41041867"},"Réunions 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-802b-bbe0-000b16ae3566"},"Livrables 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-80a4-8b0c-000b0dc0766d"},"Documents 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-80e7-a558-000b92a6fff3"},"Dossiers 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-8066-9ea0-000b00130dd3"},"Factures 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-8005-9533-000bb82f3280"},"Jalons annuels Projets 2026":{type:"relation",dataSourceUrl:"collection://346dfc12-15cc-80e3-8d11-000bcd38b4f9"},"Projets 2026":{type:"relation",dataSourceUrl:"collection://346dfc12-15cc-8070-8f8e-000bba2683fe"},"Risques & Alertes 2026":{type:"relation",dataSourceUrl:"collection://c49aaa84-043e-4e84-9a46-1a3cef2ba656"}}},
   {name:"Réunions 2026",dsId:"343dfc12-15cc-8036-a376-f749fecab404",dsUrl:"collection://343dfc12-15cc-802b-bbe0-000b16ae3566",viewUrl:"view://343dfc12-15cc-80cd-ac55-000cc98aa787",titleProp:"Nom",schema:{"Nom":{type:"title"},"Type":{type:"select",options:[{name:"Client"},{name:"Interne"},{name:"Kick-off"},{name:"Suivi"},{name:"Restitution"},{name:"Autre"}]},"Statut":{type:"select",options:[{name:"A valider"},{name:"planifié"},{name:"annulé"},{name:"réalisé"}]},"Priorité":{type:"select",options:[{name:"Haute"},{name:"Moyenne"},{name:"Basse"}]},"Date":{type:"date"},"Participants":{type:"person"},"Société 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-806c-aec4-000b4089c60b"},"Contacts 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-801f-b97f-000b41041867"},"Livrables 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-80a4-8b0c-000b0dc0766d"},"Documents 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-80e7-a558-000b92a6fff3"},"Dossiers 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-8066-9ea0-000b00130dd3"},"Jalons annuels Projets 2026":{type:"relation",dataSourceUrl:"collection://346dfc12-15cc-80e3-8d11-000bcd38b4f9"},"Projets 2026":{type:"relation",dataSourceUrl:"collection://346dfc12-15cc-8070-8f8e-000bba2683fe"}}},
   {name:"Livrables 2026",dsId:"343dfc12-15cc-8005-9cad-f8bd538b9b99",dsUrl:"collection://343dfc12-15cc-80a4-8b0c-000b0dc0766d",viewUrl:"view://343dfc12-15cc-80a3-a931-000ca1ba17ba",titleProp:"Nom",schema:{"Nom":{type:"title"},"Type":{type:"select",options:[{name:"calcul"},{name:"rapport"},{name:"présentation"},{name:"analyse"},{name:"déclaration"},{name:"autre"}]},"Etat":{type:"select",options:[{name:"En cours"},{name:"En validation"},{name:"Terminé"},{name:"En attente"},{name:"Annulé"}]},"Priorité":{type:"select",options:[{name:"Haute"},{name:"Moyenne"},{name:"Basse"}]},"Deadline":{type:"date"},"Assigned To":{type:"person"},"Société 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-806c-aec4-000b4089c60b"},"Documents 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-80e7-a558-000b92a6fff3"},"Dossiers 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-8066-9ea0-000b00130dd3"},"Jalons annuels Projets 2026":{type:"relation",dataSourceUrl:"collection://346dfc12-15cc-80e3-8d11-000bcd38b4f9"}}},
-  {name:"Documents 2026",dsId:"343dfc12-15cc-80d1-961b-ff7b013237c2",dsUrl:"collection://343dfc12-15cc-80e7-a558-000b92a6fff3",viewUrl:"view://343dfc12-15cc-80e6-9499-000cf4bc63dc",titleProp:"Nom",schema:{"Nom":{type:"title"},"Type":{type:"select",options:[{name:"Sheet"},{name:"Doc"},{name:"Slide"},{name:"PDF"},{name:"Image"},{name:"Autre"}]},"userDefined:URL":{type:"url"},"Société 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-806c-aec4-000b4089c60b"},"Livrables 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-80a4-8b0c-000b0dc0766d"},"Dossiers 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-8066-9ea0-000b00130dd3"}}},
+  {name:"Documents 2026",dsId:"343dfc12-15cc-80d1-961b-ff7b013237c2",dsUrl:"collection://343dfc12-15cc-80e7-a558-000b92a6fff3",viewUrl:"view://343dfc12-15cc-80e6-9499-000cf4bc63dc",titleProp:"Nom",schema:{"Nom":{type:"title"},"Type":{type:"select",options:[{name:"Sheet"},{name:"Doc"},{name:"Slide"},{name:"PDF"},{name:"Image"},{name:"Email"},{name:"web"},{name:"Autre"}]},"Date réception":{type:"date"},"userDefined:URL":{type:"url"},"Société 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-806c-aec4-000b4089c60b"},"Dossiers 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-8066-9ea0-000b00130dd3"},"Projets 2026":{type:"relation",dataSourceUrl:"collection://346dfc12-15cc-8070-8f8e-000bba2683fe"},"Jalons annuels Projets 2026":{type:"relation",dataSourceUrl:"collection://346dfc12-15cc-80e3-8d11-000bcd38b4f9"},"Livrables 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-80a4-8b0c-000b0dc0766d"},"Réunions 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-802b-bbe0-000b16ae3566"},"Risques & Alertes 2026":{type:"relation",dataSourceUrl:"collection://c49aaa84-043e-4e84-9a46-1a3cef2ba656"}}},
   {name:"Dossiers 2026",dsId:"343dfc12-15cc-80b0-ba49-ca34c7d85596",dsUrl:"collection://343dfc12-15cc-8066-9ea0-000b00130dd3",viewUrl:"view://343dfc12-15cc-808a-ac35-000c7be09a4a",titleProp:"Nom",schema:{"Nom":{type:"title"},"Type":{type:"select",options:[{name:"CII"},{name:"CIR"},{name:"JEI"},{name:"Audit"},{name:"AGR"},{name:"SUB"},{name:"Autre"}]},"Personne":{type:"person"},"Lien Drive":{type:"url"},"Année":{type:"select",options:[{name:"2018"},{name:"2019"},{name:"2020"},{name:"2021"},{name:"2022"},{name:"2023"},{name:"2024"},{name:"2025"},{name:"2026"}]},"Dépenses engagées":{type:"rollup"},"Dépenses valorisables":{type:"rollup"},"Montant CICO":{type:"rollup"},"Montant CIR/CII":{type:"rollup"},"Subvention perçue":{type:"rollup"},"Société 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-806c-aec4-000b4089c60b"},"Livrables 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-80a4-8b0c-000b0dc0766d"},"Documents 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-80e7-a558-000b92a6fff3"},"Factures 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-8005-9533-000bb82f3280"},"Réunions 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-802b-bbe0-000b16ae3566"},"Projets 2026":{type:"relation",dataSourceUrl:"collection://346dfc12-15cc-80e3-8d11-000bcd38b4f9"},"Risques & Alertes 2026":{type:"relation",dataSourceUrl:"collection://c49aaa84-043e-4e84-9a46-1a3cef2ba656"}}},
   {name:"Factures 2026",dsId:"343dfc12-15cc-8046-9ae7-f83e2fa815e5",dsUrl:"collection://343dfc12-15cc-8005-9533-000bb82f3280",viewUrl:"view://343dfc12-15cc-801e-916e-000c84cc51d2",titleProp:"Nom",schema:{"Nom":{type:"title"},"Type":{type:"select",options:[{name:"Forfait"},{name:"Acompte"},{name:"Solde"}]},"État":{type:"select",options:[{name:"A facturer"},{name:"Envoyée"},{name:"Payée"},{name:"En retard"},{name:"Annulée"}]},"Exercice":{type:"select",options:[{name:"2024"},{name:"2025"},{name:"2026"}]},"Montant":{type:"number"},"Date de facturation":{type:"date"},"Société 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-806c-aec4-000b4089c60b"},"Dossiers 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-8066-9ea0-000b00130dd3"}}},
   {name:"Projets 2026",dsId:"346dfc12-15cc-8021-897a-fa6b2cf1ae37",dsUrl:"collection://346dfc12-15cc-8070-8f8e-000bba2683fe",viewUrl:"view://346dfc12-15cc-8097-b1b8-000c917088ea",titleProp:"Nom",schema:{"Nom":{type:"title"},"Objectif":{type:"text"},"Verrous":{type:"text"},"Axe de R&DI":{type:"select",options:[{name:"Alimentation animale - BDD propiétaire"},{name:"Inno Fonctionnelle - Agrégateur de données dans le BTP"}]},"Démarrage":{type:"select",options:[{name:"2018"},{name:"2019"},{name:"2020"},{name:"2021"},{name:"2022"},{name:"2023"},{name:"2024"},{name:"2025"},{name:"2026"}]},"Cloture":{type:"select",options:[{name:"2019"},{name:"2020"},{name:"2021"},{name:"2022"},{name:"2023"},{name:"2024"},{name:"2025"},{name:"2026"},{name:"2027"}]},"TRL":{type:"select",options:[{name:"1"},{name:"2"},{name:"3"},{name:"4"},{name:"5"},{name:"6"},{name:"7"},{name:"8"},{name:"9"}]},"TRL Cible":{type:"select",options:[{name:"5"},{name:"6"},{name:"7"},{name:"8"},{name:"9"}]},"Gouvernance":{type:"select",options:[{name:"Interne"},{name:"Codev"},{name:"Presta"}]},"Stratégie PI":{type:"select",options:[{name:"N.A"},{name:"Secret de affaires"}]},"Lien Drive":{type:"url"},"Axe R&D&I":{type:"formula"},"Score D":{type:"formula"},"Score I":{type:"formula"},"Score R":{type:"formula"},"type CI":{type:"rollup"},"Tot CICO obtenu":{type:"rollup"},"Tot CIR/CII obtenu":{type:"rollup"},"Tot Dépenses Engagées":{type:"rollup"},"Tot Sub obtenu":{type:"rollup"},"Tot dépenses valorisées":{type:"rollup"},"Société 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-806c-aec4-000b4089c60b"},"Jalons annuels Projets 2026":{type:"relation",dataSourceUrl:"collection://346dfc12-15cc-80e3-8d11-000bcd38b4f9"},"Documents 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-80e7-a558-000b92a6fff3"},"Risques & Alertes 2026":{type:"relation",dataSourceUrl:"collection://c49aaa84-043e-4e84-9a46-1a3cef2ba656"}}},
@@ -130,46 +130,63 @@ function LoginScreen({error}){
    INBOX PANEL (Dashboard email management)
    ══════════════════════════════════════ */
 function InboxPanel({emails,setEmails,dbs}){
-  const[assocId,setAssocId]=useState(null); // email id being associated
-  const[assocType,setAssocType]=useState(0); // index in dbs
-  const[assocSearch,setAssocSearch]=useState("");
+  const[assocId,setAssocId]=useState(null);
+  const[assocSelections,setAssocSelections]=useState({});
+  const[assocSearch,setAssocSearch]=useState({});
   const[assocBusy,setAssocBusy]=useState(false);
 
-  // Bases available for association (those with relations to other bases)
-  const assocBases=[
-    {idx:dbs.findIndex(d=>d.name.includes("Société")),label:"🏢 Société",icon:"🏢"},
-    {idx:dbs.findIndex(d=>d.name.includes("Dossier")&&!d.name.includes("Document")),label:"📁 Dossier",icon:"📁"},
-    {idx:dbs.findIndex(d=>d.name.includes("Projet")),label:"🚀 Projet",icon:"🚀"},
-    {idx:dbs.findIndex(d=>d.name.includes("Jalon")),label:"🎯 Jalon",icon:"🎯"},
-    {idx:dbs.findIndex(d=>d.name.includes("Livrable")),label:"📋 Livrable",icon:"📋"},
-    {idx:dbs.findIndex(d=>d.name.includes("Réunion")),label:"📅 Réunion",icon:"📅"},
-  ].filter(b=>b.idx>=0);
+  // Available relation fields in Documents 2026
+  const ASSOC_FIELDS=[
+    {key:"Société 2026",label:"🏢 Société",dsUrl:"collection://343dfc12-15cc-806c-aec4-000b4089c60b"},
+    {key:"Dossiers 2026",label:"📁 Dossier",dsUrl:"collection://343dfc12-15cc-8066-9ea0-000b00130dd3"},
+    {key:"Projets 2026",label:"🚀 Projet",dsUrl:"collection://346dfc12-15cc-8070-8f8e-000bba2683fe"},
+    {key:"Jalons annuels Projets 2026",label:"🎯 Jalon",dsUrl:"collection://346dfc12-15cc-80e3-8d11-000bcd38b4f9"},
+    {key:"Livrables 2026",label:"📋 Livrable",dsUrl:"collection://343dfc12-15cc-80a4-8b0c-000b0dc0766d"},
+    {key:"Réunions 2026",label:"📅 Réunion",dsUrl:"collection://343dfc12-15cc-802b-bbe0-000b16ae3566"},
+  ];
 
-  const handleTrash=async(emailId)=>{
-    if(!confirm("Supprimer cet email ?"))return;
-    try{await gmailTrash(emailId);setEmails(prev=>prev.filter(e=>e.id!==emailId))}catch(e){alert("Erreur: "+e.message)}
+  const getDb=(dsUrl)=>dbs.find(d=>d.dsUrl===dsUrl);
+
+  // Filter entities by selected société
+  const filterBySoc=(items,socUrl)=>{
+    if(!socUrl)return items;
+    return items.filter(r=>{try{return JSON.parse(r["Société 2026"]||"[]").includes(socUrl)}catch{return false}});
   };
 
-  const handleAssociate=async(emailMsg,targetRow)=>{
+  const handleTrash=async(emailId)=>{
+    if(!confirm("Supprimer cet email de Gmail ?"))return;
+    try{
+      const r=await gmailTrash(emailId);
+      if(r.ok||r.error===undefined)setEmails(prev=>prev.filter(e=>e.id!==emailId));
+      else alert("Erreur Gmail: "+(r.error||"Échec. Déconnectez-vous et reconnectez-vous pour autoriser la suppression."));
+    }catch(e){alert("Erreur: "+e.message+"\n\nDéconnectez-vous et reconnectez-vous pour autoriser la nouvelle permission Gmail.")}
+  };
+
+  const handleAssociate=async(emailMsg)=>{
+    const sels=assocSelections;
+    if(!Object.values(sels).some(Boolean)){alert("Sélectionnez au moins une entité");return}
     setAssocBusy(true);
     try{
-      // Create a Document 2026 entry linked to the target entity
       const docsDb=dbs.find(d=>d.name.includes("Document"));
       if(!docsDb){alert("Base Documents introuvable");setAssocBusy(false);return}
-      const targetDb=dbs[assocType];
-      // Find the relation field name in Documents that points to the target base
-      const relField=Object.entries(docsDb.schema).find(([,d])=>d.type==="relation"&&d.dataSourceUrl===targetDb.dsUrl);
-      const props={Nom:"📧 "+emailMsg.subject,"userDefined:URL":"https://mail.google.com/mail/u/0/#inbox/"+emailMsg.id};
-      if(relField)props[relField[0]]=JSON.stringify([targetRow.url]);
+      // Parse email date
+      let emailDate="";
+      try{const d=new Date(emailMsg.date);if(!isNaN(d))emailDate=d.toISOString().slice(0,10)}catch{}
+      // Build properties
+      const props={Nom:"📧 "+(emailMsg.subject||"Sans objet"),"userDefined:URL":"https://mail.google.com/mail/u/0/#inbox/"+emailMsg.id,Type:"Email"};
+      if(emailDate)props["date:Date réception:start"]=emailDate;
+      // Add all selected relations
+      ASSOC_FIELDS.forEach(f=>{if(sels[f.key])props[f.key]=JSON.stringify([sels[f.key]])});
       await createPage(docsDb.dsId,props,docsDb.schema);
-      // Mark email as read
       try{await gmailMarkRead(emailMsg.id)}catch{}
       setEmails(prev=>prev.filter(e=>e.id!==emailMsg.id));
-      setAssocId(null);setAssocSearch("");
-      alert("✅ Email associé à "+targetRow[targetDb.titleProp]+" !");
+      setAssocId(null);setAssocSelections({});setAssocSearch({});
+      alert("✅ Email associé !");
     }catch(e){alert("Erreur: "+e.message)}
     setAssocBusy(false);
   };
+
+  const socUrl=assocSelections["Société 2026"]||null;
 
   return <div style={{marginBottom:20}}>
     <h3 style={{margin:"0 0 10px",fontSize:14,fontWeight:800,color:"#D97706"}}>📧 Emails récents ({emails.length} non lus)</h3>
@@ -182,29 +199,41 @@ function InboxPanel({emails,setEmails,dbs}){
           </div>
           <div style={{fontSize:10,color:"#BBB",whiteSpace:"nowrap",flexShrink:0}}>{m.date?.split(",")[0]||""}</div>
           <div style={{display:"flex",gap:3,flexShrink:0}}>
-            <button onClick={()=>window.open("https://mail.google.com/mail/u/0/#inbox/"+m.id,"_blank")} title="Ouvrir dans Gmail" style={{background:"none",border:"none",cursor:"pointer",fontSize:13,padding:2}}>📨</button>
-            <button onClick={()=>{setAssocId(assocId===m.id?null:m.id);setAssocSearch("")}} title="Associer à une entité" style={{background:assocId===m.id?"#EFF6FF":"none",border:assocId===m.id?"1px solid #BFDBFE":"none",borderRadius:4,cursor:"pointer",fontSize:13,padding:2}}>🔗</button>
+            <button onClick={()=>window.open("https://mail.google.com/mail/u/0/#inbox/"+m.id,"_blank")} title="Ouvrir" style={{background:"none",border:"none",cursor:"pointer",fontSize:13,padding:2}}>📨</button>
+            <button onClick={()=>{setAssocId(assocId===m.id?null:m.id);setAssocSelections({});setAssocSearch({})}} title="Associer" style={{background:assocId===m.id?"#EFF6FF":"none",border:assocId===m.id?"1px solid #BFDBFE":"none",borderRadius:4,cursor:"pointer",fontSize:13,padding:2}}>🔗</button>
             <button onClick={()=>handleTrash(m.id)} title="Supprimer" style={{background:"none",border:"none",cursor:"pointer",fontSize:13,padding:2}}>🗑️</button>
           </div>
         </div>
-        {/* Association form */}
-        {assocId===m.id&&<div style={{background:"#F8FAFC",border:"1px solid #E2E8F0",borderRadius:8,padding:10,marginTop:4,marginBottom:4}}>
-          <div style={{fontSize:11,fontWeight:700,color:"#475569",marginBottom:6}}>🔗 Associer cet email à :</div>
-          <div style={{display:"flex",gap:3,marginBottom:8,flexWrap:"wrap"}}>
-            {assocBases.map((b,i)=><button key={b.idx} onClick={()=>{setAssocType(b.idx);setAssocSearch("")}} style={{padding:"3px 10px",borderRadius:6,border:"1.5px solid "+(assocType===b.idx?"#2563EB":"#E2E8F0"),background:assocType===b.idx?"#EFF6FF":"#fff",color:assocType===b.idx?"#2563EB":"#64748B",fontSize:11,fontWeight:assocType===b.idx?700:500,cursor:"pointer",fontFamily:font}}>{b.label}</button>)}
+        {/* Multi-association form */}
+        {assocId===m.id&&<div style={{background:"#F8FAFC",border:"1px solid #E2E8F0",borderRadius:8,padding:12,marginTop:4,marginBottom:4}}>
+          <div style={{fontSize:11,fontWeight:700,color:"#475569",marginBottom:8}}>🔗 Associer à : <span style={{fontWeight:400,color:"#94A3B8"}}>(sélectionnez une ou plusieurs entités)</span></div>
+          {ASSOC_FIELDS.map(f=>{
+            const db=getDb(f.dsUrl);if(!db)return null;
+            const search=assocSearch[f.key]||"";
+            const selected=assocSelections[f.key];
+            const selectedRow=selected?(db.data||[]).find(r=>r.url===selected):null;
+            const selectedTitle=selectedRow?selectedRow[db.titleProp]:"";
+            // Filter by société for non-société fields
+            let items=db.data||[];
+            if(f.key!=="Société 2026"&&socUrl)items=filterBySoc(items,socUrl);
+            if(search)items=items.filter(r=>(r[db.titleProp]||"").toLowerCase().includes(search.toLowerCase()));
+            return <div key={f.key} style={{marginBottom:6}}>
+              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
+                <span style={{fontSize:11,fontWeight:600,color:"#64748B",minWidth:90}}>{f.label}</span>
+                {selected?<div style={{display:"flex",alignItems:"center",gap:4,padding:"2px 8px",background:"#EFF6FF",borderRadius:5,border:"1px solid #BFDBFE"}}>
+                  <span style={{fontSize:11,fontWeight:600,color:"#2563EB"}}>{selectedTitle}</span>
+                  <button onClick={()=>setAssocSelections(p=>{const n={...p};delete n[f.key];return n})} style={{background:"none",border:"none",cursor:"pointer",fontSize:10,color:"#999",padding:0}}>✕</button>
+                </div>:<input value={search} onChange={e=>setAssocSearch(p=>({...p,[f.key]:e.target.value}))} placeholder={"Rechercher..."} style={{flex:1,padding:"4px 8px",border:"1px solid #E2E8F0",borderRadius:5,fontSize:11,fontFamily:font,outline:"none"}}/>}
+              </div>
+              {!selected&&search&&<div style={{maxHeight:100,overflowY:"auto",marginLeft:96,display:"grid",gap:2}}>
+                {items.slice(0,8).map(r=><button key={r.url} onClick={()=>{setAssocSelections(p=>({...p,[f.key]:r.url}));setAssocSearch(p=>({...p,[f.key]:""}))}} style={{textAlign:"left",padding:"4px 8px",background:"#fff",border:"1px solid #E8E8E4",borderRadius:4,fontSize:11,cursor:"pointer",fontFamily:font,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} onMouseOver={e=>e.currentTarget.style.background="#F0F9FF"} onMouseOut={e=>e.currentTarget.style.background="#fff"}>{r[db.titleProp]||"?"}</button>)}
+                {items.length===0&&<span style={{fontSize:10,color:"#999",padding:4}}>Aucun résultat</span>}
+              </div>}
+            </div>})}
+          <div style={{display:"flex",gap:6,marginTop:8}}>
+            <button disabled={assocBusy||!Object.values(assocSelections).some(Boolean)} onClick={()=>handleAssociate(m)} style={{padding:"6px 16px",borderRadius:6,border:"none",background:Object.values(assocSelections).some(Boolean)?"#2563EB":"#E2E8F0",color:Object.values(assocSelections).some(Boolean)?"#fff":"#999",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:font}}>{assocBusy?"⏳ Sauvegarde...":"✅ Associer"}</button>
+            <button onClick={()=>{setAssocId(null);setAssocSelections({});setAssocSearch({})}} style={{padding:"6px 12px",borderRadius:6,border:"1px solid #E2E8F0",background:"#fff",fontSize:12,cursor:"pointer",fontFamily:font,color:"#64748B"}}>Annuler</button>
           </div>
-          <input value={assocSearch} onChange={e=>setAssocSearch(e.target.value)} placeholder={"🔍 Rechercher dans "+(dbs[assocType]?.name||"")+"..."} style={{width:"100%",padding:"6px 10px",border:"1.5px solid #E2E8F0",borderRadius:6,fontSize:12,fontFamily:font,marginBottom:6,outline:"none",boxSizing:"border-box"}}/>
-          <div style={{maxHeight:150,overflowY:"auto",display:"grid",gap:2}}>
-            {(dbs[assocType]?.data||[]).filter(r=>{const t=r[dbs[assocType]?.titleProp]||"";return !assocSearch||t.toLowerCase().includes(assocSearch.toLowerCase())}).slice(0,15).map(r=>{
-              const t=r[dbs[assocType]?.titleProp]||"Sans titre";
-              return <button key={r.url} disabled={assocBusy} onClick={()=>handleAssociate(m,r)} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",background:"#fff",border:"1px solid #E8E8E4",borderRadius:6,cursor:"pointer",fontFamily:font,fontSize:12,textAlign:"left",transition:"background .1s"}} onMouseOver={e=>e.currentTarget.style.background="#F0F9FF"} onMouseOut={e=>e.currentTarget.style.background="#fff"}>
-                <span>{assocBases.find(b=>b.idx===assocType)?.icon||"📄"}</span>
-                <span style={{fontWeight:600,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t}</span>
-                {assocBusy&&<span style={{fontSize:10,color:"#999"}}>⏳</span>}
-              </button>})}
-            {(dbs[assocType]?.data||[]).filter(r=>{const t=r[dbs[assocType]?.titleProp]||"";return !assocSearch||t.toLowerCase().includes(assocSearch.toLowerCase())}).length===0&&<div style={{fontSize:11,color:"#999",padding:8,textAlign:"center"}}>Aucun résultat</div>}
-          </div>
-          <button onClick={()=>{setAssocId(null);setAssocSearch("")}} style={{marginTop:6,padding:"4px 12px",border:"1px solid #E2E8F0",borderRadius:6,background:"#fff",fontSize:11,cursor:"pointer",fontFamily:font,color:"#64748B"}}>Annuler</button>
         </div>}
       </div>)}
     </div>
