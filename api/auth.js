@@ -5,10 +5,12 @@ const GOOGLE_AUTH = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN = 'https://oauth2.googleapis.com/token';
 const GOOGLE_USERINFO = 'https://www.googleapis.com/oauth2/v2/userinfo';
 
-const CLIENT_ID = () => process.env.GOOGLE_CLIENT_ID;
-const CLIENT_SECRET = () => process.env.GOOGLE_CLIENT_SECRET;
-const SECRET = () => new TextEncoder().encode(process.env.AUTH_SECRET || 'fallback-secret-change-me-32chars!');
-const APP_URL = () => process.env.APP_URL || 'https://cr-mnotion2.vercel.app';
+// Read config from file (env vars workaround)
+import { GOOGLE } from './_config.js';
+const CLIENT_ID = () => GOOGLE.clientId;
+const CLIENT_SECRET = () => GOOGLE.clientSecret;
+const SECRET = () => new TextEncoder().encode(GOOGLE.authSecret);
+const APP_URL = () => GOOGLE.appUrl;
 const COOKIE_NAME = 'pdj_session';
 const ALLOWED_DOMAIN = 'pdj-conseil.fr';
 
