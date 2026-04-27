@@ -374,10 +374,13 @@ function DashboardView({dbs,crmUser}){
       <div style={{background:"#fff",borderRadius:14,border:"1px solid #F0EFEC",padding:16,maxHeight:400,overflowY:"auto"}}>
         <h3 style={{margin:"0 0 12px",fontSize:14,fontWeight:800,color:"#2563EB"}}>📅 Aujourd'hui</h3>
         {(()=>{
-          // Merge Google Calendar + CRM réunions + livrables for today, sorted by time
+          // Google Calendar = source of truth. CRM réunions only if no Google match
+          const gcToday=calEvents.filter(e=>e.start?.slice(0,10)===todayStr);
+          const gcTitles=gcToday.map(e=>(e.title||"").toLowerCase());
+          const reunTodayUniq=reunToday.filter(r=>!gcTitles.some(gt=>gt.includes((r.Nom||"").toLowerCase().slice(0,15))||(r.Nom||"").toLowerCase().includes(gt.slice(0,15))));
           const todayItems=[
-            ...calEvents.filter(e=>e.start?.slice(0,10)===todayStr).map(ev=>({key:"gc-"+ev.id,time:ev.start?.includes("T")?ev.start.slice(11,16):"",title:ev.title,type:"gcal",color:"#2563EB",bg:"#EFF6FF",tag:ev.attendees?.length?"👤"+ev.attendees.length:"",onClick:()=>ev.link&&window.open(ev.link,"_blank")})),
-            ...reunToday.map(r=>({key:r.url,time:r["date:Date:start"]?.includes("T")?r["date:Date:start"].slice(11,16):"",title:r.Nom,type:"reunion",color:"#7C3AED",bg:"#F5F3FF",tag:r.Type,tagColor:r.Type==="Client"?"#2563EB":"#7C3AED"})),
+            ...gcToday.map(ev=>({key:"gc-"+ev.id,time:ev.start?.includes("T")?ev.start.slice(11,16):"",title:ev.title,type:"gcal",color:"#2563EB",bg:"#EFF6FF",tag:ev.attendees?.length?"👤"+ev.attendees.length:"",onClick:()=>ev.link&&window.open(ev.link,"_blank")})),
+            ...reunTodayUniq.map(r=>({key:r.url,time:r["date:Date:start"]?.includes("T")?r["date:Date:start"].slice(11,16):"",title:r.Nom,type:"reunion",color:"#7C3AED",bg:"#F5F3FF",tag:r.Type,tagColor:r.Type==="Client"?"#2563EB":"#7C3AED"})),
             ...livToday.map(l=>({key:l.url,time:"",title:l.Nom,type:"livrable",color:"#D97706",bg:"#FFFBEB",tag:l.Etat,tagColor:EC[l.Etat]}))
           ].sort((a,b)=>(a.time||"99:99").localeCompare(b.time||"99:99"));
           return todayItems.length>0?todayItems.map(item=><div key={item.key} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:item.bg,borderRadius:6,marginBottom:4,cursor:item.onClick?"pointer":"default"}} onClick={item.onClick||undefined}>
@@ -390,9 +393,11 @@ function DashboardView({dbs,crmUser}){
         {/* Cette semaine (Google Calendar + CRM réunions fusionnés) */}
         {(()=>{
           const calWeek=calEvents.filter(e=>{const d=e.start?.slice(0,10);return d>todayStr&&daysUntil(d)<=7});
+          const calWeekTitles=calWeek.map(e=>(e.title||"").toLowerCase());
+          const reunWeekUniq=reunWeek.filter(r=>!calWeekTitles.some(gt=>gt.includes((r.Nom||"").toLowerCase().slice(0,15))||(r.Nom||"").toLowerCase().includes(gt.slice(0,15))));
           const weekItems=[
             ...calWeek.map(ev=>({key:"gc-"+ev.id,date:ev.start?.slice(5,10)||"",time:ev.start?.includes("T")?ev.start.slice(11,16):"",title:ev.title,type:"gcal",color:"#2563EB",onClick:()=>ev.link&&window.open(ev.link,"_blank")})),
-            ...reunWeek.map(r=>({key:r.url,date:r["date:Date:start"]?.slice(5,10)||"",time:r["date:Date:start"]?.includes("T")?r["date:Date:start"].slice(11,16):"",title:r.Nom,type:"reunion",color:"#7C3AED",tag:r.Type,tagColor:r.Type==="Client"?"#2563EB":"#7C3AED"}))
+            ...reunWeekUniq.map(r=>({key:r.url,date:r["date:Date:start"]?.slice(5,10)||"",time:r["date:Date:start"]?.includes("T")?r["date:Date:start"].slice(11,16):"",title:r.Nom,type:"reunion",color:"#7C3AED",tag:r.Type,tagColor:r.Type==="Client"?"#2563EB":"#7C3AED"}))
           ].sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
           if(weekItems.length===0)return null;
           return <>
@@ -438,10 +443,11 @@ function DashboardView({dbs,crmUser}){
       const firstDay=new Date(calYear,calMonth,1).getDay();const daysInMonth=new Date(calYear,calMonth+1,0).getDate();
       const offset=(firstDay+6)%7;const MNAMES=["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];const DNAMES=["L","M","M","J","V","S","D"];
       const events={};
-      // Google Calendar events
-      calEvents.forEach(ev=>{const d=ev.start?.slice(0,10);if(d){if(!events[d])events[d]=[];events[d].push({type:"gcal",name:(ev.start?.includes("T")?ev.start.slice(11,16)+" ":"")+ev.title,color:"#2563EB",link:ev.link})}});
-      // CRM events
-      reunions.forEach(r=>{const d=r["date:Date:start"];if(d){if(!events[d])events[d]=[];events[d].push({type:"reunion",name:r.Nom,color:"#7C3AED"})}});
+      // Google Calendar events (source of truth)
+      const gcNames=new Set();
+      calEvents.forEach(ev=>{const d=ev.start?.slice(0,10);if(d){if(!events[d])events[d]=[];events[d].push({type:"gcal",name:(ev.start?.includes("T")?ev.start.slice(11,16)+" ":"")+ev.title,color:"#2563EB",link:ev.link});gcNames.add((ev.title||"").toLowerCase().slice(0,15))}});
+      // CRM réunions (only if no Google Calendar match)
+      reunions.forEach(r=>{const d=r["date:Date:start"];if(d){const rName=(r.Nom||"").toLowerCase().slice(0,15);if(!gcNames.has(rName)&&![...gcNames].some(g=>g.includes(rName)||rName.includes(g))){if(!events[d])events[d]=[];events[d].push({type:"reunion",name:r.Nom,color:"#7C3AED"})}}});
       livrables.forEach(l=>{const d=l["date:Deadline:start"];if(d&&l.Etat!=="Terminé"&&l.Etat!=="Annulé"){if(!events[d])events[d]=[];events[d].push({type:"deadline",name:l.Nom,color:PC[l["Priorité"]]||"#D97706"})}});
       factures.forEach(f=>{const d=f["date:Date de facturation:start"];if(d){if(!events[d])events[d]=[];events[d].push({type:"facture",name:f.Nom,color:"#16A34A"})}});
       risques.forEach(r=>{const d=r["date:Date limite action:start"];if(d&&r.Statut!=="Résolu"&&r.Statut!=="Classé sans suite"){if(!events[d])events[d]=[];events[d].push({type:"risque",name:r.Nom,color:"#DC2626"})}});
