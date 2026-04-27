@@ -1,7 +1,8 @@
 // api/google.js — Proxy Google Calendar, Gmail, Drive
 import { jwtVerify } from 'jose';
 
-const SECRET = () => new TextEncoder().encode(process.env.AUTH_SECRET || 'fallback-secret-change-me-32chars!');
+import { GOOGLE } from './_config.js';
+const SECRET = () => new TextEncoder().encode(GOOGLE.authSecret);
 const COOKIE_NAME = 'pdj_session';
 const GCAL = 'https://www.googleapis.com/calendar/v3';
 const GMAIL = 'https://gmail.googleapis.com/gmail/v1';
