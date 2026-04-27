@@ -3,11 +3,13 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pi
 
 /* ══ CONFIG ══ */
 const USERS=[
-  {id:"03ee67d9-fca8-4672-a139-4880e4eb406b",name:"Axel HAZOUME",short:"Axel",color:"#E74C3C"},
-  {id:"af436357-51d5-4ae4-9052-f77950ec5c98",name:"Guillaume Hermosilla Lara",short:"Guillaume",color:"#3498DB"},
-  {id:"294d872b-594c-8191-920a-000216bb2c0c",name:"Lucile Brun",short:"Lucile",color:"#9B59B6"},
-  {id:"7e764ade-b9b3-4cfe-a5ca-aadc7816660d",name:"Paul Froment",short:"Paul",color:"#2ECC71"},
+  {id:"03ee67d9-fca8-4672-a139-4880e4eb406b",name:"Axel HAZOUME",short:"Axel",color:"#E74C3C",email:"a.hazoume@pdj-conseil.fr"},
+  {id:"af436357-51d5-4ae4-9052-f77950ec5c98",name:"Guillaume Hermosilla Lara",short:"Guillaume",color:"#3498DB",email:"g.hermosilla@pdj-conseil.fr"},
+  {id:"294d872b-594c-8191-920a-000216bb2c0c",name:"Lucile Brun",short:"Lucile",color:"#9B59B6",email:"l.brun@pdj-conseil.fr"},
+  {id:"7e764ade-b9b3-4cfe-a5ca-aadc7816660d",name:"Paul Froment",short:"Paul",color:"#2ECC71",email:"p.froment@pdj-conseil.fr"},
+  {id:"c-froment",name:"Christian Froment",short:"Christian",color:"#E67E22",email:"c.froment@pdj-conseil.fr",role:"Dir. Financier"},
 ];
+const EMAIL_TO_USER=Object.fromEntries(USERS.map(u=>[u.email,u]));
 const CFG=[
   {name:"Contacts 2026",dsId:"343dfc12-15cc-80b0-ac5d-e7c6de8026e9",dsUrl:"collection://343dfc12-15cc-801f-b97f-000b41041867",viewUrl:"view://343dfc12-15cc-8087-b53b-000c7f890fad",titleProp:"Prénom",schema:{"Prénom":{type:"title"},"N. Famille":{type:"text"},"Fonction":{type:"select",options:[{name:"Président"},{name:"Directeur"},{name:"Associé"},{name:"Consultant"},{name:"Manager"},{name:"Autre"}]},"Email Address":{type:"email"},"Phone Number":{type:"phone_number"},"Société 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-806c-aec4-000b4089c60b"},"Réunions 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-802b-bbe0-000b16ae3566"}}},
   {name:"Société 2026",dsId:"343dfc12-15cc-80d8-bca4-f624826c626c",dsUrl:"collection://343dfc12-15cc-806c-aec4-000b4089c60b",viewUrl:"view://343dfc12-15cc-80ba-83a4-000c8db9d508",titleProp:"Nom",schema:{"Nom":{type:"title"},"Statut":{type:"select",options:[{name:"Partenaire"},{name:"Client"},{name:"Prospect"},{name:"Fournisseur"},{name:"Autre"}]},"Lieu":{type:"place"},"Contacts 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-801f-b97f-000b41041867"},"Réunions 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-802b-bbe0-000b16ae3566"},"Livrables 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-80a4-8b0c-000b0dc0766d"},"Documents 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-80e7-a558-000b92a6fff3"},"Dossiers 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-8066-9ea0-000b00130dd3"},"Factures 2026":{type:"relation",dataSourceUrl:"collection://343dfc12-15cc-8005-9533-000bb82f3280"},"Jalons annuels Projets 2026":{type:"relation",dataSourceUrl:"collection://346dfc12-15cc-80e3-8d11-000bcd38b4f9"},"Projets 2026":{type:"relation",dataSourceUrl:"collection://346dfc12-15cc-8070-8f8e-000bba2683fe"},"Risques & Alertes 2026":{type:"relation",dataSourceUrl:"collection://c49aaa84-043e-4e84-9a46-1a3cef2ba656"}}},
@@ -38,6 +40,13 @@ async function archivePage(pageId){
   const r=await fetch("/api/notion?action=archive",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({page_id:pageId})});
   if(!r.ok)throw new Error("Archive failed");
 }
+
+/* ══ AUTH + GOOGLE API ══ */
+async function fetchMe(){try{const r=await fetch("/api/auth?action=me");if(!r.ok)return null;return await r.json()}catch{return null}}
+async function gCalCreate(ev){const r=await fetch("/api/google?service=calendar&action=create",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(ev)});return r.json()}
+async function gCalList(){const r=await fetch("/api/google?service=calendar&action=list");if(!r.ok)return[];const d=await r.json();return d.events||[]}
+async function gmailSearch(q){const r=await fetch("/api/google?service=gmail&action=search",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({q})});if(!r.ok)return[];const d=await r.json();return d.messages||[]}
+async function gDriveSearch(q){const r=await fetch("/api/google?service=drive&action=search",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({q})});if(!r.ok)return[];const d=await r.json();return d.files||[]}
 
 /* ══ HELPERS ══ */
 const EDITABLE=new Set(["title","text","rich_text","email","phone_number","url","number","select","multi_select","checkbox","date","place","status","person"]);
@@ -92,6 +101,27 @@ function KPI({label,value,sub,color,icon}){const c=color||"#64748B";return <div 
   <div style={{fontSize:26,fontWeight:800,color:c,lineHeight:1,letterSpacing:-.5,whiteSpace:"nowrap"}}>{value}</div>
   {sub&&<div style={{fontSize:10,color:"#94A3B8",marginTop:5,fontWeight:500}}>{sub}</div>}
 </div>}
+
+/* ══════════════════════════════════════
+   LOGIN SCREEN
+   ══════════════════════════════════════ */
+function LoginScreen({error}){
+  return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#F8F8F6,#E8E6E1)",fontFamily:font}}>
+    <div style={{background:"#fff",borderRadius:20,padding:"48px 40px",textAlign:"center",maxWidth:400,width:"90%",boxShadow:"0 8px 32px rgba(0,0,0,.08)"}}>
+      <div style={{width:64,height:64,borderRadius:16,background:"linear-gradient(135deg,#111,#444)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:28,margin:"0 auto 20px"}}>📊</div>
+      <h1 style={{margin:"0 0 6px",fontSize:24,fontWeight:800,letterSpacing:-.5}}>Point du Jour CRM</h1>
+      <p style={{color:"#999",margin:"0 0 28px",fontSize:13}}>Connectez-vous avec votre compte @pdj-conseil.fr</p>
+      {error&&<div style={{background:"#FEE2E2",color:"#DC2626",padding:"10px 14px",borderRadius:8,fontSize:12,marginBottom:16}}>
+        {error==="domain_not_allowed"?"Seuls les comptes @pdj-conseil.fr sont autorisés":error==="auth_failed"?"Erreur d'authentification":error}
+      </div>}
+      <a href="/api/auth?action=login" style={{display:"inline-flex",alignItems:"center",gap:10,padding:"12px 28px",background:"#111",color:"#fff",borderRadius:10,textDecoration:"none",fontSize:14,fontWeight:600,cursor:"pointer",transition:"background .2s"}}>
+        <svg width="18" height="18" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.26c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/><path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>
+        Se connecter avec Google
+      </a>
+      <p style={{color:"#ccc",fontSize:11,marginTop:20}}>Accès réservé à l'équipe Point du Jour Conseil</p>
+    </div>
+  </div>;
+}
 
 /* ══════════════════════════════════════
    DASHBOARD VIEW
@@ -490,6 +520,7 @@ function ManagerView({dbs,tab,setTab,onModal,onDetail,onDelete}){
           </div>
         </div>
         <div style={{fontSize:11,fontWeight:600,color:days===0?"#2563EB":past?"#999":days<=3?"#D97706":"#888"}}>{days===0?"Auj.":past?Math.abs(days)+"j passé":days+"j"}</div>
+        <Btn variant="gh" size="sm" onClick={async(e)=>{e.stopPropagation();const dd=row["date:Date:start"];if(!dd){alert("Pas de date");return}try{const r=await gCalCreate({summary:title,start:dd,description:"Réunion — "+(soc||""),attendees:[],location:""});if(r.link){window.open(r.link,"_blank")}else if(r.error){alert(r.error)}else{alert("Créé!")}}catch(err){alert("Erreur: "+err.message)}}} title="Sync Google Calendar">📅</Btn>
         {acts(row,title)}
       </div>,row);
     }
@@ -905,6 +936,11 @@ function DetailView({entry,db,allDbs,onClose,onOpenModal,onDeleteEntry}){
       </div>
       <div style={{display:"flex",gap:4}}><Btn variant="gh" size="sm" onClick={()=>{onClose();onOpenModal({mode:"edit",type:allDbs.indexOf(db),data:{...entry}})}}>✏️</Btn><Btn variant="gh" size="sm" onClick={onClose}>✕</Btn></div>
     </div>
+    {/* Google integration bar */}
+    <div style={{display:"flex",gap:6,padding:"8px 22px",borderBottom:"1px solid "+T.bdr,background:"#FAFAF8"}}>
+      <button onClick={async()=>{const q=title;const msgs=await gmailSearch(q);if(msgs.length===0){alert("Aucun email trouvé pour \""+q+"\"")}else{const list=msgs.slice(0,5).map(m=>"• "+m.subject+" ("+m.from.split("<")[0].trim()+")").join("\n");alert("📧 "+msgs.length+" email(s) trouvé(s):\n\n"+list)}}} style={{display:"flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,border:"1px solid #E5E5E0",background:"#fff",fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:font,color:"#555"}}>📧 Emails</button>
+      <button onClick={async()=>{const q=title;const files=await gDriveSearch(q);if(files.length===0){alert("Aucun fichier Drive trouvé pour \""+q+"\"")}else{const first=files[0];if(first.link)window.open(first.link,"_blank");else{const list=files.slice(0,5).map(f=>"• "+f.name).join("\n");alert("📁 "+files.length+" fichier(s):\n\n"+list)}}}} style={{display:"flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,border:"1px solid #E5E5E0",background:"#fff",fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:font,color:"#555"}}>📁 Drive</button>
+    </div>
     <div style={{padding:"18px 22px"}}>
       {relFields.map(([rn,rd])=>{const tDb=allDbs.find(d=>d.dsUrl===rd.dataSourceUrl);if(!tDb)return null;const items=resolveRel(entry[rn],tDb);const tInfo=Object.entries(tDb.schema).filter(([,d])=>d.type!=="title"&&d.type!=="relation"&&!READONLY.has(d.type));const icon=tDb.name.includes("Contact")?"👤":tDb.name.includes("Réunion")?"📅":tDb.name.includes("Livrable")?"📋":tDb.name.includes("Document")?"📄":tDb.name.includes("Facture")?"💶":tDb.name.includes("Jalon")?"🎯":tDb.name.includes("Projet")?"🚀":tDb.name.includes("Risque")?"⚠️":tDb.name.includes("Dossier")?"📁":"🔗";const rev=Object.entries(tDb.schema).find(([,d])=>d.type==="relation"&&d.dataSourceUrl===db.dsUrl)?.[0];
         return <div key={rn} style={{marginBottom:12}}><div onClick={()=>setDetailCollapsed(p=>({...p,[rn]:!p[rn]}))} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",background:"#F8F8F6",borderRadius:8,cursor:"pointer",userSelect:"none",marginBottom:detailCollapsed[rn]?0:8}}>
@@ -940,10 +976,25 @@ function DetailView({entry,db,allDbs,onClose,onOpenModal,onDeleteEntry}){
    MAIN APP
    ══════════════════════════════════════ */
 export default function App(){
+  const[authUser,setAuthUser]=useState(undefined); // undefined=loading, null=not logged in, object=logged in
   const[dbs,setDbs]=useState(CFG.map(c=>({...c,data:[]})));
   const[mode,setMode]=useState("dashboard");
-  const[crmUser,setCrmUser]=useState(null); // null=Général, or user id
+  const[crmUser,setCrmUser]=useState(null);
   const[tab,setTab]=useState(0);const[loading,setLoading]=useState(true);const[busy,setBusy]=useState(false);
+
+  // Check auth on mount
+  useEffect(()=>{
+    const params=new URLSearchParams(window.location.search);
+    const error=params.get("error");
+    if(error){setAuthUser({error});return}
+    fetchMe().then(user=>{
+      if(!user){setAuthUser(null);return}
+      setAuthUser(user);
+      // Auto-set CRM user from email
+      const match=EMAIL_TO_USER[user.email];
+      if(match&&match.id!=="c-froment")setCrmUser(match.id);
+    }).catch(()=>setAuthUser(null));
+  },[]);
   const[modal,setModal]=useState(null);const[toast,setToast]=useState(null);const[confirm,setConfirm]=useState(null);const[detail,setDetail]=useState(null);
 
   const notify=(m,e)=>{setToast({m,e});setTimeout(()=>setToast(null),3500)};
@@ -1014,6 +1065,10 @@ export default function App(){
 
   if(loading)return <div style={{fontFamily:font,display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:T.bg}}><div style={{textAlign:"center"}}><Spin s={24}/><p style={{color:"#999",fontSize:13,marginTop:12}}>Chargement des données Notion...</p></div></div>;
 
+  // Auth loading or login screen
+  if(authUser===undefined)return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:font}}><div style={{textAlign:"center"}}><div style={{fontSize:32,marginBottom:12}}>📊</div><div style={{color:"#999"}}>Chargement...</div></div></div>;
+  if(authUser===null||authUser?.error)return <LoginScreen error={authUser?.error}/>;
+
   return <div style={{fontFamily:font,background:T.bg,minHeight:"100vh",color:T.txt}}>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
     <header style={{background:"#fff",borderBottom:"1px solid "+T.bdr,padding:"0 28px"}}>
@@ -1028,6 +1083,11 @@ export default function App(){
             <button onClick={()=>setMode("manager")} style={{padding:"5px 14px",borderRadius:6,border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:font,background:mode==="manager"?"#fff":"transparent",color:mode==="manager"?T.txt:"#999",boxShadow:mode==="manager"?"0 1px 3px rgba(0,0,0,.08)":"none"}}>⚙️ Gérer</button>
           </div>
           <Btn variant="sec" size="sm" onClick={loadData} loading={loading}>🔄</Btn>
+          {authUser&&<div style={{display:"flex",alignItems:"center",gap:6,padding:"3px 10px 3px 3px",background:"#F0EFEC",borderRadius:20}}>
+            {authUser.picture?<img src={authUser.picture} style={{width:24,height:24,borderRadius:12}} referrerPolicy="no-referrer"/>:<div style={{width:24,height:24,borderRadius:12,background:"#ddd"}}/>}
+            <span style={{fontSize:11,fontWeight:600,color:"#555"}}>{authUser.team?.short||authUser.name?.split(" ")[0]}</span>
+            <a href="/api/auth?action=logout" style={{fontSize:10,color:"#999",textDecoration:"none",marginLeft:2}} title="Déconnexion">↗</a>
+          </div>}
         </div>
       </div>
       {/* ── CRM User Selector ── */}
