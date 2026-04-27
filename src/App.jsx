@@ -330,10 +330,11 @@ function DashboardView({dbs,crmUser}){
   const[calEvents,setCalEvents]=useState([]);
   const[inboxEmails,setInboxEmails]=useState([]);
   const[gSyncing,setGSyncing]=useState(false);
-  const syncGoogle=async()=>{setGSyncing(true);try{const[cal,mail]=await Promise.all([gCalList(),gmailSearch("in:inbox newer_than:7d")]);setCalEvents(cal);setInboxEmails(mail)}catch{}setGSyncing(false)};
+  const dedup=(mails)=>{const seen=new Set();return mails.filter(m=>{const k=m.threadId||m.id;if(seen.has(k))return false;seen.add(k);return true})};
+  const syncGoogle=async()=>{setGSyncing(true);try{const[cal,mail]=await Promise.all([gCalList(),gmailSearch("in:inbox newer_than:7d")]);setCalEvents(cal);setInboxEmails(dedup(mail))}catch{}setGSyncing(false)};
   useEffect(()=>{
     syncGoogle();
-    const gmailTimer=setInterval(()=>{gmailSearch("in:inbox newer_than:7d").then(setInboxEmails).catch(()=>{})},120000);
+    const gmailTimer=setInterval(()=>{gmailSearch("in:inbox newer_than:7d").then(m=>setInboxEmails(dedup(m))).catch(()=>{})},120000);
     const calTimer=setInterval(()=>{gCalList().then(setCalEvents).catch(()=>{})},300000);
     return()=>{clearInterval(gmailTimer);clearInterval(calTimer)};
   },[]);
@@ -1304,4 +1305,3 @@ export default function App(){
     <style>{`@keyframes spin{to{transform:rotate(360deg)}}@keyframes su{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}@keyframes si{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}*{box-sizing:border-box;margin:0}`}</style>
   </div>;
 }
-                    
