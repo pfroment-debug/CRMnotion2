@@ -366,12 +366,11 @@ function DashboardView({dbs,crmUser}){
     {/* ══ ZONE PRINCIPALE : Emails | Aujourd'hui (côte à côte) ══ */}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:20}}>
       {/* Colonne gauche: Boîte de réception */}
-      <div style={{background:"#fff",borderRadius:14,border:"1px solid #F0EFEC",padding:16,maxHeight:400,overflowY:"auto"}}>
-        <InboxPanel emails={inboxEmails} setEmails={setInboxEmails} dbs={dbs}/>
-        {inboxEmails.length===0&&<div style={{textAlign:"center",padding:20,color:"#ccc",fontSize:12}}>Aucun email récent</div>}
+      <div style={{background:"#fff",borderRadius:14,border:"1px solid #F0EFEC",padding:16,minHeight:200}}>
+        {inboxEmails.length>0?<InboxPanel emails={inboxEmails} setEmails={setInboxEmails} dbs={dbs}/>:<div style={{textAlign:"center",padding:20,color:"#ccc",fontSize:12}}><h3 style={{margin:"0 0 10px",fontSize:14,fontWeight:800,color:"#D97706"}}>📧 Boîte de réception</h3>Aucun email récent</div>}
       </div>
       {/* Colonne droite: Aujourd'hui + semaine (fusionné Google + CRM) */}
-      <div style={{background:"#fff",borderRadius:14,border:"1px solid #F0EFEC",padding:16,maxHeight:400,overflowY:"auto"}}>
+      <div style={{background:"#fff",borderRadius:14,border:"1px solid #F0EFEC",padding:16,minHeight:200}}>
         <h3 style={{margin:"0 0 12px",fontSize:14,fontWeight:800,color:"#2563EB"}}>📅 Aujourd'hui</h3>
         {(()=>{
           // Google Calendar = source of truth. CRM réunions only if no Google match
@@ -1305,3 +1304,4 @@ export default function App(){
     <style>{`@keyframes spin{to{transform:rotate(360deg)}}@keyframes su{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}@keyframes si{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}*{box-sizing:border-box;margin:0}`}</style>
   </div>;
 }
+                    
