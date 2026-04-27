@@ -85,19 +85,23 @@ export default async function handler(req, res) {
 
       // Search emails
       if (action === 'search') {
-        const { q, maxResults = 10 } = req.method === 'POST' ? req.body : req.query;
+        const { q, maxResults = 20 } = req.method === 'POST' ? req.body : req.query;
         if (!q) return res.status(400).json({ error: 'Paramètre q requis' });
 
         const r = await fetch(`${GMAIL}/users/me/messages?q=${encodeURIComponent(q)}&maxResults=${maxResults}`, { headers });
         if (!r.ok) { const e = await r.json(); return res.status(r.status).json(e); }
         const list = await r.json();
 
-        // Fetch details for each message
+        // Fetch details for each message, deduplicate by threadId
         const messages = [];
-        for (const msg of (list.messages || []).slice(0, 10)) {
+        const seenThreads = new Set();
+        for (const msg of (list.messages || []).slice(0, 20)) {
           const mr = await fetch(`${GMAIL}/users/me/messages/${msg.id}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject&metadataHeaders=Date`, { headers });
           if (!mr.ok) continue;
           const md = await mr.json();
+          // Skip duplicates from same thread
+          if (seenThreads.has(md.threadId)) continue;
+          seenThreads.add(md.threadId);
           const hdrs = {};
           (md.payload?.headers || []).forEach(h => { hdrs[h.name] = h.value; });
           messages.push({
