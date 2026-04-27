@@ -48,7 +48,7 @@ async function gCalList(){const r=await fetch("/api/google?service=calendar&acti
 async function gmailSearch(q){const r=await fetch("/api/google?service=gmail&action=search",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({q})});if(!r.ok)return[];const d=await r.json();return d.messages||[]}
 async function gDriveSearch(q){const r=await fetch("/api/google?service=drive&action=search",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({q})});if(!r.ok)return[];const d=await r.json();return d.files||[]}
 
-async function gmailTrash(id){const r=await fetch("/api/google?service=gmail&action=trash",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messageId:id})});return r.json()}
+async function gmailTrash(id){const r=await fetch("/api/google?service=gmail&action=trash",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messageId:id})});if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error||"Échec suppression (status "+r.status+"). Déconnectez-vous et reconnectez-vous.")}return r.json()}
 async function gmailMarkRead(id){const r=await fetch("/api/google?service=gmail&action=read",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messageId:id})});return r.json()}
 
 /* ══ HELPERS ══ */
@@ -189,17 +189,17 @@ function InboxPanel({emails,setEmails,dbs}){
   const socUrl=assocSelections["Société 2026"]||null;
 
   return <div style={{marginBottom:20}}>
-    <h3 style={{margin:"0 0 10px",fontSize:14,fontWeight:800,color:"#D97706"}}>📧 Emails récents ({emails.length} non lus)</h3>
+    <h3 style={{margin:"0 0 10px",fontSize:14,fontWeight:800,color:"#D97706"}}>📧 Boîte de réception ({emails.length})</h3>
     <div style={{display:"grid",gap:4}}>
-      {emails.slice(0,8).map((m)=><div key={m.id}>
+      {emails.slice(0,10).map((m)=><div key={m.id}>
         <div style={{display:"flex",gap:8,padding:"8px 12px",background:"#fff",borderRadius:8,border:"1px solid "+(assocId===m.id?"#2563EB40":"#F0EFEC"),alignItems:"center"}}>
-          <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>window.open("https://mail.google.com/mail/u/0/#inbox/"+m.id,"_blank")}>
+          <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>window.open(m.url||("https://mail.google.com/mail/u/0/#inbox/"+m.id),"_blank")}>
             <div style={{fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.subject||"(sans objet)"}</div>
             <div style={{fontSize:11,color:"#888",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.from?.split("<")[0]?.trim()} — {m.snippet?.slice(0,60)}</div>
           </div>
           <div style={{fontSize:10,color:"#BBB",whiteSpace:"nowrap",flexShrink:0}}>{m.date?.split(",")[0]||""}</div>
           <div style={{display:"flex",gap:3,flexShrink:0}}>
-            <button onClick={()=>window.open("https://mail.google.com/mail/u/0/#inbox/"+m.id,"_blank")} title="Ouvrir" style={{background:"none",border:"none",cursor:"pointer",fontSize:13,padding:2}}>📨</button>
+            <button onClick={()=>window.open(m.url||("https://mail.google.com/mail/u/0/#inbox/"+m.id),"_blank")} title="Ouvrir" style={{background:"none",border:"none",cursor:"pointer",fontSize:13,padding:2}}>📨</button>
             <button onClick={()=>{setAssocId(assocId===m.id?null:m.id);setAssocSelections({});setAssocSearch({})}} title="Associer" style={{background:assocId===m.id?"#EFF6FF":"none",border:assocId===m.id?"1px solid #BFDBFE":"none",borderRadius:4,cursor:"pointer",fontSize:13,padding:2}}>🔗</button>
             <button onClick={()=>handleTrash(m.id)} title="Supprimer" style={{background:"none",border:"none",cursor:"pointer",fontSize:13,padding:2}}>🗑️</button>
           </div>
@@ -311,7 +311,7 @@ function DashboardView({dbs,crmUser}){
   const[inboxEmails,setInboxEmails]=useState([]);
   useEffect(()=>{
     gCalList().then(setCalEvents).catch(()=>{});
-    gmailSearch("is:unread newer_than:3d").then(setInboxEmails).catch(()=>{});
+    gmailSearch("newer_than:7d").then(setInboxEmails).catch(()=>{});
   },[]);
 
   return <div>
@@ -1087,12 +1087,29 @@ function DetailView({entry,db,allDbs,onClose,onOpenModal,onDeleteEntry}){
     </div>
     {/* Google integration bar */}
     <div style={{display:"flex",gap:6,padding:"8px 22px",borderBottom:"1px solid "+T.bdr,background:"#FAFAF8"}}>
-      <button onClick={async()=>{
-        const email=entry["Email Address"]||entry["email"]||"";
-        const q=email||title;
-        setEmailPanel("loading");
-        const msgs=await gmailSearch(q);
-        setEmailPanel(msgs.length>0?msgs:[]);
+      <button onClick={()=>{
+        // Show associated email Documents from Notion (not Gmail search)
+        const docsDb=allDbs.find(d=>d.name.includes("Document"));
+        if(!docsDb){setEmailPanel([]);return}
+        // Find Documents of type Email that reference this entity
+        const myUrl=entry.url;
+        const emailDocs=(docsDb.data||[]).filter(doc=>{
+          if(doc.Type!=="Email")return false;
+          // Check if this doc is related to our entry via any relation
+          return Object.entries(docsDb.schema).filter(([,d])=>d.type==="relation").some(([rn])=>{
+            try{return JSON.parse(doc[rn]||"[]").some(u=>{
+              // Match against entry url or entry's société url
+              return u===myUrl;
+            })}catch{return false}
+          });
+        }).map(doc=>({
+          id:doc.url,
+          subject:(doc.Nom||"").replace("📧 ",""),
+          date:doc["date:Date réception:start"]||"",
+          url:doc["userDefined:URL"]||"",
+          from:""
+        }));
+        setEmailPanel(emailDocs);
       }} style={{display:"flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,border:"1px solid #E5E5E0",background:emailPanel?"#EFF6FF":"#fff",fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:font,color:emailPanel?"#2563EB":"#555"}}>📧 Emails{Array.isArray(emailPanel)?" ("+emailPanel.length+")":""}</button>
       <button onClick={()=>{
         const email=entry["Email Address"]||entry["email"]||"";
@@ -1101,36 +1118,16 @@ function DetailView({entry,db,allDbs,onClose,onOpenModal,onDeleteEntry}){
         window.open(mailto,"_blank");
       }} style={{display:"flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,border:"1px solid #E5E5E0",background:"#fff",fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:font,color:"#555"}}>✉️ Écrire</button>
       <button onClick={async()=>{
-        // Check if a Drive link is already saved
         if(savedDriveLink){window.open(savedDriveLink,"_blank");return}
-        // Otherwise search Drive
-        const q=title;const files=await gDriveSearch(q);
-        if(files.length===0){
-          const manual=prompt("Aucun fichier trouvé pour \""+q+"\".\nCollez un lien Drive pour le sauvegarder :");
-          if(manual&&manual.startsWith("http")){
-            try{
-              const pid=entry.url.replace("notion://","");
-              await fetch("/api/notion?action=update",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({page_id:pid,properties:{"userDefined:Lien Drive":manual},schema:{"Lien Drive":{type:"url"}}})});
-              setSavedDriveLink(manual);alert("✅ Lien Drive sauvegardé !");
-            }catch(e){alert("Erreur: "+e.message)}
-          }
-        }else{
-          const list=files.slice(0,5).map((f,i)=>(i+1)+". "+f.name).join("\n");
-          const choice=prompt("📁 "+files.length+" fichier(s) trouvé(s):\n\n"+list+"\n\nTapez le numéro pour ouvrir et sauvegarder le lien, ou collez un lien Drive manuellement :");
-          if(!choice)return;
-          let link="";
-          const num=parseInt(choice);
-          if(num>=1&&num<=files.length&&files[num-1].link){link=files[num-1].link;window.open(link,"_blank")}
-          else if(choice.startsWith("http")){link=choice}
-          if(link){
-            try{
-              const pid=entry.url.replace("notion://","");
-              await fetch("/api/notion?action=update",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({page_id:pid,properties:{"userDefined:Lien Drive":link},schema:{"Lien Drive":{type:"url"}}})});
-              setSavedDriveLink(link);alert("✅ Lien Drive sauvegardé pour "+title+" !");
-            }catch(e){alert("Erreur: "+e.message)}
-          }
+        const link=prompt("Collez le lien Google Drive pour \""+title+"\" :");
+        if(link&&link.startsWith("http")){
+          try{
+            const pid=entry.url.replace("notion://","");
+            await fetch("/api/notion?action=update",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({page_id:pid,properties:{"userDefined:Lien Drive":link},schema:{"Lien Drive":{type:"url"}}})});
+            setSavedDriveLink(link);alert("✅ Lien Drive sauvegardé !");
+          }catch(e){alert("Erreur: "+e.message)}
         }
-      }} style={{display:"flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,border:"1px solid #E5E5E0",background:"#fff",fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:font,color:"#555"}}>📁 Drive{savedDriveLink?" ✓":""}</button>
+      }} style={{display:"flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,border:"1px solid #E5E5E0",background:savedDriveLink?"#F0FDF4":"#fff",fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:font,color:savedDriveLink?"#16A34A":"#555"}}>📁 Drive{savedDriveLink?" ✓":""}</button>
     </div>
     {/* Email panel */}
     {emailPanel&&<div style={{padding:"10px 22px",borderBottom:"1px solid "+T.bdr,background:"#FAFAF8",maxHeight:250,overflowY:"auto"}}>
@@ -1140,7 +1137,7 @@ function DetailView({entry,db,allDbs,onClose,onOpenModal,onDeleteEntry}){
       </div>
       {emailPanel==="loading"&&<div style={{fontSize:12,color:"#999",padding:8}}>Recherche en cours...</div>}
       {Array.isArray(emailPanel)&&emailPanel.length===0&&<div style={{fontSize:12,color:"#999",padding:8,fontStyle:"italic"}}>Aucun email trouvé</div>}
-      {Array.isArray(emailPanel)&&emailPanel.map((m,i)=><div key={i} onClick={()=>window.open("https://mail.google.com/mail/u/0/#inbox/"+m.id,"_blank")} style={{display:"flex",gap:8,padding:"8px 10px",background:"#fff",borderRadius:6,border:"1px solid #E8E8E4",marginBottom:4,cursor:"pointer",transition:"background .15s"}} onMouseOver={e=>e.currentTarget.style.background="#F0F0EC"} onMouseOut={e=>e.currentTarget.style.background="#fff"}>
+      {Array.isArray(emailPanel)&&emailPanel.map((m,i)=><div key={i} onClick={()=>window.open(m.url||("https://mail.google.com/mail/u/0/#inbox/"+m.id),"_blank")} style={{display:"flex",gap:8,padding:"8px 10px",background:"#fff",borderRadius:6,border:"1px solid #E8E8E4",marginBottom:4,cursor:"pointer",transition:"background .15s"}} onMouseOver={e=>e.currentTarget.style.background="#F0F0EC"} onMouseOut={e=>e.currentTarget.style.background="#fff"}>
         <div style={{flex:1,minWidth:0}}>
           <div style={{fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.subject||"(sans objet)"}</div>
           <div style={{fontSize:11,color:"#888",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.from?.split("<")[0]?.trim()} — {m.snippet?.slice(0,80)}</div>
