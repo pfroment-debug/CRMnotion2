@@ -310,8 +310,13 @@ function DashboardView({dbs,crmUser}){
   const[calEvents,setCalEvents]=useState([]);
   const[inboxEmails,setInboxEmails]=useState([]);
   useEffect(()=>{
+    // Initial fetch
     gCalList().then(setCalEvents).catch(()=>{});
     gmailSearch("newer_than:7d").then(setInboxEmails).catch(()=>{});
+    // Auto-refresh: Gmail every 2min, Calendar every 5min
+    const gmailTimer=setInterval(()=>{gmailSearch("newer_than:7d").then(setInboxEmails).catch(()=>{})},120000);
+    const calTimer=setInterval(()=>{gCalList().then(setCalEvents).catch(()=>{})},300000);
+    return()=>{clearInterval(gmailTimer);clearInterval(calTimer)};
   },[]);
 
   return <div>
