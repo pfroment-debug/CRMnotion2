@@ -62,6 +62,18 @@ function setCookie(name, value, maxAge = 7 * 24 * 3600) {
 export default async function handler(req, res) {
   const { action } = req.query;
 
+  // ── TEST: Verify config ──
+  if (action === 'test') {
+    return res.json({
+      hasClientId: !!CLIENT_ID(),
+      clientIdStart: (CLIENT_ID()||'').slice(0,20),
+      hasClientSecret: !!CLIENT_SECRET(),
+      hasAuthSecret: !!process.env.AUTH_SECRET,
+      appUrl: APP_URL(),
+      redirectUri: `${APP_URL()}/api/auth?action=callback`
+    });
+  }
+
   // ── LOGIN: Redirect to Google OAuth ──
   if (action === 'login') {
     const redirect_uri = `${APP_URL()}/api/auth?action=callback`;
@@ -80,10 +92,11 @@ export default async function handler(req, res) {
   // ── CALLBACK: Exchange code for tokens ──
   if (action === 'callback') {
     const { code, error } = req.query;
-    if (error || !code) return res.redirect(302, `${APP_URL()}?error=auth_failed`);
+    if (error || !code) return res.redirect(302, `${APP_URL()}?error=auth_failed_${error||'no_code'}`);
 
     try {
       // Exchange code for tokens
+      const redirect_uri = `${APP_URL()}/api/auth?action=callback`;
       const tokenRes = await fetch(GOOGLE_TOKEN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -91,12 +104,15 @@ export default async function handler(req, res) {
           code,
           client_id: CLIENT_ID(),
           client_secret: CLIENT_SECRET(),
-          redirect_uri: `${APP_URL()}/api/auth?action=callback`,
+          redirect_uri,
           grant_type: 'authorization_code'
         })
       });
       const tokens = await tokenRes.json();
-      if (!tokens.access_token) return res.redirect(302, `${APP_URL()}?error=token_failed`);
+      if (!tokens.access_token) {
+        const errDetail = tokens.error_description || tokens.error || 'unknown';
+        return res.redirect(302, `${APP_URL()}?error=${encodeURIComponent(errDetail)}`);
+      }
 
       // Get user info
       const userRes = await fetch(GOOGLE_USERINFO, {
