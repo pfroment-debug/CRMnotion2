@@ -309,10 +309,11 @@ function DashboardView({dbs,crmUser}){
   // Google Calendar events + Gmail inbox
   const[calEvents,setCalEvents]=useState([]);
   const[inboxEmails,setInboxEmails]=useState([]);
+  const[gSyncing,setGSyncing]=useState(false);
+  const syncGoogle=async()=>{setGSyncing(true);try{const[cal,mail]=await Promise.all([gCalList(),gmailSearch("newer_than:7d")]);setCalEvents(cal);setInboxEmails(mail)}catch{}setGSyncing(false)};
   useEffect(()=>{
     // Initial fetch
-    gCalList().then(setCalEvents).catch(()=>{});
-    gmailSearch("newer_than:7d").then(setInboxEmails).catch(()=>{});
+    syncGoogle();
     // Auto-refresh: Gmail every 2min, Calendar every 5min
     const gmailTimer=setInterval(()=>{gmailSearch("newer_than:7d").then(setInboxEmails).catch(()=>{})},120000);
     const calTimer=setInterval(()=>{gCalList().then(setCalEvents).catch(()=>{})},300000);
@@ -325,6 +326,10 @@ function DashboardView({dbs,crmUser}){
       <div><div style={{fontSize:14,fontWeight:700,color:USERS.find(u=>u.id===crmUser)?.color}}>Vue personnelle — {USERS.find(u=>u.id===crmUser)?.name}</div>
       <div style={{fontSize:11,color:"#888"}}>Toutes les données liées à {USERS.find(u=>u.id===crmUser)?.short} (livrables, réunions, dossiers, sociétés, factures, risques...)</div></div>
     </div>}
+    {/* Google sync button */}
+    <div style={{display:"flex",justifyContent:"flex-end",marginBottom:8}}>
+      <button onClick={syncGoogle} disabled={gSyncing} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 12px",borderRadius:7,border:"1px solid #E2E8F0",background:gSyncing?"#F8FAFC":"#fff",fontSize:11,fontWeight:600,cursor:gSyncing?"wait":"pointer",fontFamily:font,color:"#64748B",transition:"all .15s"}}>{gSyncing?"⏳ Sync...":"🔄 Sync Google"}</button>
+    </div>
     {/* KPIs */}
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(140px, 1fr))",gap:10,marginBottom:22}}>
       <KPI label="Clients" value={clients.length} icon="🏢" color="#2563EB"/><KPI label="Dossiers" value={dossiers.length} icon="📁" color="#8B5CF6"/><KPI label="Réunions" value={reunionsAVenir.length} icon="📅" color="#7C3AED"/><KPI label="Livrables actifs" value={livrables.filter(l=>l.Etat!=="Terminé"&&l.Etat!=="Annulé").length} icon="📋" color="#D97706"/><KPI label="En retard" value={livRetard.length} color={livRetard.length?"#DC2626":"#16A34A"} icon="⚠️"/><KPI label="Risques" value={risquesActifs.length} color={risquesCritiques.length?"#DC2626":risquesActifs.length?"#D97706":"#16A34A"} sub={risquesCritiques.length?risquesCritiques.length+" critique(s)":undefined} icon="🚨"/><KPI label="CA total" value={fmt(caTotal)} sub={caPaye?fmt(caPaye)+" encaissé":undefined} icon="💶" color="#16A34A"/>
