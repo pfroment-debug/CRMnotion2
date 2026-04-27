@@ -169,19 +169,28 @@ function InboxPanel({emails,setEmails,dbs}){
     try{
       const docsDb=dbs.find(d=>d.name.includes("Document"));
       if(!docsDb){alert("Base Documents introuvable");setAssocBusy(false);return}
+      // Check if Document already exists for this email
+      const gmailUrl="https://mail.google.com/mail/u/0/#inbox/"+emailMsg.id;
+      const existing=(docsDb.data||[]).find(doc=>doc.Type==="Email"&&(doc["userDefined:URL"]||"").includes(emailMsg.id));
       // Parse email date
       let emailDate="";
       try{const d=new Date(emailMsg.date);if(!isNaN(d))emailDate=d.toISOString().slice(0,10)}catch{}
       // Build properties
-      const props={Nom:"📧 "+(emailMsg.subject||"Sans objet"),"userDefined:URL":"https://mail.google.com/mail/u/0/#inbox/"+emailMsg.id,Type:"Email"};
+      const props={Nom:"📧 "+(emailMsg.subject||"Sans objet"),"userDefined:URL":gmailUrl,Type:"Email"};
       if(emailDate)props["date:Date réception:start"]=emailDate;
       // Add all selected relations
       ASSOC_FIELDS.forEach(f=>{if(sels[f.key])props[f.key]=JSON.stringify([sels[f.key]])});
-      await createPage(docsDb.dsId,props,docsDb.schema);
+      if(existing){
+        // Update existing Document
+        const pageId=existing.url.replace("notion://","");
+        await fetch("/api/notion?action=update",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({page_id:pageId,properties:props,schema:docsDb.schema})});
+      }else{
+        // Create new Document
+        await createPage(docsDb.dsId,props,docsDb.schema);
+      }
       try{await gmailMarkRead(emailMsg.id)}catch{}
-      setEmails(prev=>prev.filter(e=>e.id!==emailMsg.id));
       setAssocId(null);setAssocSelections({});setAssocSearch({});
-      alert("✅ Email associé !");
+      alert("✅ Email "+(existing?"mis à jour":"associé")+" !");
     }catch(e){alert("Erreur: "+e.message)}
     setAssocBusy(false);
   };
@@ -191,8 +200,12 @@ function InboxPanel({emails,setEmails,dbs}){
   return <div style={{marginBottom:20}}>
     <h3 style={{margin:"0 0 10px",fontSize:14,fontWeight:800,color:"#D97706"}}>📧 Boîte de réception ({emails.length})</h3>
     <div style={{display:"grid",gap:4}}>
-      {emails.slice(0,10).map((m)=><div key={m.id}>
-        <div style={{display:"flex",gap:8,padding:"8px 12px",background:"#fff",borderRadius:8,border:"1px solid "+(assocId===m.id?"#2563EB40":"#F0EFEC"),alignItems:"center"}}>
+      {emails.slice(0,10).map((m)=>{
+        const docsDb=dbs.find(d=>d.name.includes("Document"));
+        const isAssociated=docsDb?(docsDb.data||[]).some(doc=>doc.Type==="Email"&&(doc["userDefined:URL"]||"").includes(m.id)):false;
+        return <div key={m.id}>
+        <div style={{display:"flex",gap:8,padding:"8px 12px",background:isAssociated?"#F0FDF4":"#fff",borderRadius:8,border:"1px solid "+(assocId===m.id?"#2563EB40":isAssociated?"#BBF7D0":"#F0EFEC"),borderLeft:isAssociated?"3px solid #16A34A":"none",alignItems:"center"}}>
+          {isAssociated&&<span title="Déjà associé" style={{fontSize:10,color:"#16A34A",fontWeight:700,flexShrink:0}}>✓</span>}
           <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>window.open(m.url||("https://mail.google.com/mail/u/0/#inbox/"+m.id),"_blank")}>
             <div style={{fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.subject||"(sans objet)"}</div>
             <div style={{fontSize:11,color:"#888",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.from?.split("<")[0]?.trim()} — {m.snippet?.slice(0,60)}</div>
@@ -200,7 +213,19 @@ function InboxPanel({emails,setEmails,dbs}){
           <div style={{fontSize:10,color:"#BBB",whiteSpace:"nowrap",flexShrink:0}}>{m.date?.split(",")[0]||""}</div>
           <div style={{display:"flex",gap:3,flexShrink:0}}>
             <button onClick={()=>window.open(m.url||("https://mail.google.com/mail/u/0/#inbox/"+m.id),"_blank")} title="Ouvrir" style={{background:"none",border:"none",cursor:"pointer",fontSize:13,padding:2}}>📨</button>
-            <button onClick={()=>{setAssocId(assocId===m.id?null:m.id);setAssocSelections({});setAssocSearch({})}} title="Associer" style={{background:assocId===m.id?"#EFF6FF":"none",border:assocId===m.id?"1px solid #BFDBFE":"none",borderRadius:4,cursor:"pointer",fontSize:13,padding:2}}>🔗</button>
+            <button onClick={()=>{
+              if(assocId===m.id){setAssocId(null);setAssocSelections({});setAssocSearch({});return}
+              // Check if email already associated - find existing Document
+              const docsDb=dbs.find(d=>d.name.includes("Document"));
+              const existing=docsDb?(docsDb.data||[]).find(doc=>doc.Type==="Email"&&(doc["userDefined:URL"]||"").includes(m.id)):null;
+              const pre={};
+              if(existing){
+                ASSOC_FIELDS.forEach(f=>{
+                  try{const urls=JSON.parse(existing[f.key]||"[]");if(urls.length>0)pre[f.key]=urls[0]}catch{}
+                });
+              }
+              setAssocSelections(pre);setAssocSearch({});setAssocId(m.id);
+            }} title={assocId===m.id?"Fermer":"Associer"} style={{background:assocId===m.id?"#EFF6FF":"none",border:assocId===m.id?"1px solid #BFDBFE":"none",borderRadius:4,cursor:"pointer",fontSize:13,padding:2}}>🔗</button>
             <button onClick={()=>handleTrash(m.id)} title="Supprimer" style={{background:"none",border:"none",cursor:"pointer",fontSize:13,padding:2}}>🗑️</button>
           </div>
         </div>
@@ -235,7 +260,7 @@ function InboxPanel({emails,setEmails,dbs}){
             <button onClick={()=>{setAssocId(null);setAssocSelections({});setAssocSearch({})}} style={{padding:"6px 12px",borderRadius:6,border:"1px solid #E2E8F0",background:"#fff",fontSize:12,cursor:"pointer",fontFamily:font,color:"#64748B"}}>Annuler</button>
           </div>
         </div>}
-      </div>)}
+      </div>})}
     </div>
   </div>;
 }
@@ -244,7 +269,6 @@ function InboxPanel({emails,setEmails,dbs}){
    DASHBOARD VIEW
    ══════════════════════════════════════ */
 function DashboardView({dbs,crmUser}){
-  const[userView,setUserView]=useState(null);
   const[calMonth,setCalMonth]=useState(new Date().getMonth());
   const[calYear,setCalYear]=useState(new Date().getFullYear());
   const[expandedSoc,setExpandedSoc]=useState(null);
@@ -264,23 +288,30 @@ function DashboardView({dbs,crmUser}){
   factures.forEach(f=>{const ex=f.Exercice||"N/A";if(!caByEx[ex])caByEx[ex]={total:0,paye:0,afact:0,envoye:0};caByEx[ex].total+=(f.Montant||0);if(f["État"]==="Payée")caByEx[ex].paye+=(f.Montant||0);if(f["État"]==="A facturer")caByEx[ex].afact+=(f.Montant||0);if(f["État"]==="Envoyée")caByEx[ex].envoye+=(f.Montant||0)});
   const caTotal=factures.reduce((s,f)=>s+(f.Montant||0),0);
   const caPaye=factures.filter(f=>f["État"]==="Payée").reduce((s,f)=>s+(f.Montant||0),0);
-
-  const userLiv=(uid)=>livrables.filter(l=>userIds(l["Assigned To"]).includes(uid));
-  const userUrg=(uid)=>userLiv(uid).filter(l=>{const d=daysUntil(l["date:Deadline:start"]);return d<=3&&l.Etat!=="Terminé"&&l.Etat!=="Annulé"});
   const fmt=(n)=>n>=10000?Math.round(n/1000).toLocaleString("fr-FR")+" K€":Number(n).toLocaleString("fr-FR")+" €";
 
   const livRetard=livrables.filter(l=>daysUntil(l["date:Deadline:start"])<0&&l.Etat!=="Terminé"&&l.Etat!=="Annulé").sort((a,b)=>daysUntil(a["date:Deadline:start"])-daysUntil(b["date:Deadline:start"]));
   const livUrgent=livrables.filter(l=>{const d=daysUntil(l["date:Deadline:start"]);return d>=0&&d<=3&&l.Etat!=="Terminé"&&l.Etat!=="Annulé"});
   const facAF=factures.filter(f=>f["État"]==="A facturer");
 
-  const inWeek=(d)=>{const days=daysUntil(d);return days>=0&&days<=7};
-  const livSemaine=livrables.filter(l=>inWeek(l["date:Deadline:start"])&&l.Etat!=="Terminé"&&l.Etat!=="Annulé");
-  const reunSemaine=reunionsAVenir.filter(r=>inWeek(r["date:Date:start"]));
-  const risqSemaine=risquesActifs.filter(r=>inWeek(r["date:Date limite action:start"]));
-
   const socUrl=(row)=>{try{return JSON.parse(row["Société 2026"]||"[]")[0]||""}catch{return""}};
   const socById={};societes.forEach(s=>{socById[s.url]=s});
 
+  // Items à traiter (merged urgences + cette semaine)
+  const aTraiter=[
+    ...risquesCritiques.map(r=>({type:"risque",icon:"🔴",title:(r["Type d'alerte"]||"Risque")+" — "+r.Nom,soc:socById[socUrl(r)]?.Nom||"",detail:r["Montant exposé (€)"]?fmt(r["Montant exposé (€)"]):"",badge:r.Statut,badgeColor:EC[r.Statut],urgency:100})),
+    ...livRetard.map(l=>({type:"retard",icon:"⏰",title:l.Nom,soc:socById[socUrl(l)]?.Nom||"",detail:Math.abs(daysUntil(l["date:Deadline:start"]))+"j retard",detailColor:"#DC2626",badge:l.Etat,badgeColor:EC[l.Etat],urgency:50+Math.abs(daysUntil(l["date:Deadline:start"]))})),
+    ...livUrgent.map(l=>({type:"urgent",icon:"⚡",title:l.Nom,soc:socById[socUrl(l)]?.Nom||"",detail:daysUntil(l["date:Deadline:start"])===0?"Aujourd'hui":daysUntil(l["date:Deadline:start"])+"j",detailColor:"#D97706",badge:l.Etat,badgeColor:EC[l.Etat],urgency:30})),
+    ...facAF.map(f=>({type:"facture",icon:"💶",title:f.Nom,soc:socById[socUrl(f)]?.Nom||"",detail:f.Montant?fmt(f.Montant):"—",urgency:20})),
+  ].sort((a,b)=>b.urgency-a.urgency);
+
+  // Today's items for "Aujourd'hui" panel
+  const todayStr=TODAY;
+  const reunToday=reunionsAVenir.filter(r=>r["date:Date:start"]?.slice(0,10)===todayStr);
+  const livToday=livrables.filter(l=>l["date:Deadline:start"]?.slice(0,10)===todayStr&&l.Etat!=="Terminé"&&l.Etat!=="Annulé");
+  const reunWeek=reunionsAVenir.filter(r=>{const d=daysUntil(r["date:Date:start"]);return d>0&&d<=7});
+
+  // Société data for bottom section
   const socData=societes.map(soc=>{
     const m=(row)=>socUrl(row)===soc.url;
     const sLiv=livrables.filter(m);const sFac=factures.filter(m);const sDos=dossiers.filter(m);const sReu=reunions.filter(m);const sRis=risques.filter(m);
@@ -294,105 +325,111 @@ function DashboardView({dbs,crmUser}){
     return{soc,sLiv,sLivActifs,sRetard,sFac,sDos,sReu,sRis,sRisActifs,sCA,sAFact,sReuAVenir,urgencyScore};
   }).sort((a,b)=>b.urgencyScore-a.urgencyScore);
 
-  // ── USER VIEW ──
-  if(userView){
-    const u=USERS.find(x=>x.id===userView);const uL=userLiv(userView);const uU=userUrg(userView);
-    return <div>
-      <button onClick={()=>setUserView(null)} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 12px",border:"none",background:"none",color:T.pri,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:font,marginBottom:16}}>← Retour</button>
-      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}><Avatar uid={userView} size={40}/><div><h2 style={{margin:0,fontSize:20,fontWeight:800}}>{u?.name}</h2><p style={{margin:0,fontSize:12,color:"#999"}}>{uL.length} livrables · {uU.length} urgents</p></div></div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(130px, 1fr))",gap:10,marginBottom:20}}><KPI label="Assignés" value={uL.length} color={u?.color} icon="📋"/><KPI label="En cours" value={uL.filter(l=>l.Etat==="En cours"||l.Etat==="En validation").length} icon="⏳" color="#D97706"/><KPI label="Urgents" value={uU.length} color={uU.length?"#DC2626":"#16A34A"} icon="🚨"/><KPI label="Terminés" value={uL.filter(l=>l.Etat==="Terminé").length} color="#16A34A" icon="✅"/></div>
-      {uL.sort((a,b)=>daysUntil(a["date:Deadline:start"])-daysUntil(b["date:Deadline:start"])).map(l=>{const days=daysUntil(l["date:Deadline:start"]);const bad=days<0&&l.Etat!=="Terminé"&&l.Etat!=="Annulé";const urg=days>=0&&days<=3&&l.Etat!=="Terminé"&&l.Etat!=="Annulé";return <div key={l.url} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",background:bad?"#FEF2F2":urg?"#FFFBEB":"#fff",borderRadius:8,border:"1px solid "+(bad?"#DC262630":urg?"#D9770630":T.bdr),marginBottom:5}}><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{l.Nom}</div><div style={{display:"flex",gap:5,flexWrap:"wrap"}}>{l.Etat&&<Tag color={EC[l.Etat]}>{l.Etat}</Tag>}{l["Priorité"]&&<Tag color={PC[l["Priorité"]]}>{l["Priorité"]}</Tag>}</div></div><div style={{fontSize:12,fontWeight:600,color:bad?"#DC2626":urg?"#D97706":"#999"}}>{l["date:Deadline:start"]||"—"}</div><span style={{fontSize:11,color:"#888"}}>{socById[socUrl(l)]?.Nom||""}</span></div>})}
-      {uL.length===0&&<div style={{color:"#999",fontStyle:"italic",fontSize:13}}>Aucun livrable assigné</div>}
-    </div>;
-  }
-
   // Google Calendar events + Gmail inbox
   const[calEvents,setCalEvents]=useState([]);
   const[inboxEmails,setInboxEmails]=useState([]);
   const[gSyncing,setGSyncing]=useState(false);
   const syncGoogle=async()=>{setGSyncing(true);try{const[cal,mail]=await Promise.all([gCalList(),gmailSearch("in:inbox newer_than:7d")]);setCalEvents(cal);setInboxEmails(mail)}catch{}setGSyncing(false)};
   useEffect(()=>{
-    // Initial fetch
     syncGoogle();
-    // Auto-refresh: Gmail every 2min, Calendar every 5min
     const gmailTimer=setInterval(()=>{gmailSearch("in:inbox newer_than:7d").then(setInboxEmails).catch(()=>{})},120000);
     const calTimer=setInterval(()=>{gCalList().then(setCalEvents).catch(()=>{})},300000);
     return()=>{clearInterval(gmailTimer);clearInterval(calTimer)};
   },[]);
 
+  // Charts data
+  const caChartData=Object.keys(caByEx).sort().map(ex=>({name:ex,"Payé":caByEx[ex].paye,"Envoyé":caByEx[ex].envoye,"A facturer":caByEx[ex].afact}));
+  const livByEtat={};livrables.forEach(l=>{const e=l.Etat||"N/A";livByEtat[e]=(livByEtat[e]||0)+1});
+  const pieData=Object.entries(livByEtat).map(([name,value])=>({name,value}));
+  const PIE_COLORS=["#3498DB","#F39C12","#27AE60","#95A5A6","#E74C3C"];
+
   return <div>
     {crmUser&&<div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16,padding:"10px 16px",background:(USERS.find(u=>u.id===crmUser)?.color||"#999")+"10",borderRadius:10,border:"1.5px solid "+(USERS.find(u=>u.id===crmUser)?.color||"#999")+"30"}}>
       <Avatar uid={crmUser} size={28}/>
       <div><div style={{fontSize:14,fontWeight:700,color:USERS.find(u=>u.id===crmUser)?.color}}>Vue personnelle — {USERS.find(u=>u.id===crmUser)?.name}</div>
-      <div style={{fontSize:11,color:"#888"}}>Toutes les données liées à {USERS.find(u=>u.id===crmUser)?.short} (livrables, réunions, dossiers, sociétés, factures, risques...)</div></div>
+      <div style={{fontSize:11,color:"#888"}}>Livrables, réunions et dossiers assignés à {USERS.find(u=>u.id===crmUser)?.short}</div></div>
     </div>}
-    {/* Google sync button */}
+
+    {/* ══ KPIs (5 essentiels, sans doublons) ══ */}
     <div style={{display:"flex",justifyContent:"flex-end",marginBottom:8}}>
-      <button onClick={syncGoogle} disabled={gSyncing} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 12px",borderRadius:7,border:"1px solid #E2E8F0",background:gSyncing?"#F8FAFC":"#fff",fontSize:11,fontWeight:600,cursor:gSyncing?"wait":"pointer",fontFamily:font,color:"#64748B",transition:"all .15s"}}>{gSyncing?"⏳ Sync...":"🔄 Sync Google"}</button>
+      <button onClick={syncGoogle} disabled={gSyncing} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 12px",borderRadius:7,border:"1px solid #E2E8F0",background:gSyncing?"#F8FAFC":"#fff",fontSize:11,fontWeight:600,cursor:gSyncing?"wait":"pointer",fontFamily:font,color:"#64748B"}}>{gSyncing?"⏳ Sync...":"🔄 Sync Google"}</button>
     </div>
-    {/* KPIs */}
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(140px, 1fr))",gap:10,marginBottom:22}}>
-      <KPI label="Clients" value={clients.length} icon="🏢" color="#2563EB"/><KPI label="Dossiers" value={dossiers.length} icon="📁" color="#8B5CF6"/><KPI label="Réunions" value={reunionsAVenir.length} icon="📅" color="#7C3AED"/><KPI label="Livrables actifs" value={livrables.filter(l=>l.Etat!=="Terminé"&&l.Etat!=="Annulé").length} icon="📋" color="#D97706"/><KPI label="En retard" value={livRetard.length} color={livRetard.length?"#DC2626":"#16A34A"} icon="⚠️"/><KPI label="Risques" value={risquesActifs.length} color={risquesCritiques.length?"#DC2626":risquesActifs.length?"#D97706":"#16A34A"} sub={risquesCritiques.length?risquesCritiques.length+" critique(s)":undefined} icon="🚨"/><KPI label="CA total" value={fmt(caTotal)} sub={caPaye?fmt(caPaye)+" encaissé":undefined} icon="💶" color="#16A34A"/>
+      <KPI label="Clients" value={clients.length} icon="🏢" color="#2563EB"/>
+      <KPI label="Dossiers" value={dossiers.length} icon="📁" color="#8B5CF6"/>
+      <KPI label="CA total" value={fmt(caTotal)} sub={caPaye?fmt(caPaye)+" encaissé":undefined} icon="💶" color="#16A34A"/>
+      <KPI label="À traiter" value={aTraiter.length} color={livRetard.length?"#DC2626":aTraiter.length?"#D97706":"#16A34A"} icon="⚡" sub={livRetard.length?livRetard.length+" en retard":undefined}/>
+      <KPI label="Risques" value={risquesActifs.length} color={risquesCritiques.length?"#DC2626":risquesActifs.length?"#D97706":"#16A34A"} sub={risquesCritiques.length?risquesCritiques.length+" critique(s)":undefined} icon="🚨"/>
     </div>
 
-    {/* ══ AGENDA DU JOUR ══ */}
-    {calEvents.length>0&&<div style={{marginBottom:20}}>
-      <h3 style={{margin:"0 0 10px",fontSize:14,fontWeight:800,color:"#2563EB"}}>📅 Agenda Google ({calEvents.filter(e=>{const d=e.start?.slice(0,10);const today=new Date().toISOString().slice(0,10);return d===today}).length} aujourd'hui)</h3>
-      <div style={{display:"grid",gap:5}}>
-        {calEvents.slice(0,8).map((ev,i)=>{
-          const isToday=ev.start?.slice(0,10)===new Date().toISOString().slice(0,10);
-          const time=ev.start?.includes("T")?ev.start.slice(11,16):"";
-          return <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",background:isToday?"#EFF6FF":"#fff",borderRadius:8,border:"1px solid "+(isToday?"#BFDBFE":"#F0EFEC"),cursor:"pointer"}} onClick={()=>ev.link&&window.open(ev.link,"_blank")}>
-            <span style={{fontSize:12,fontWeight:700,color:isToday?"#2563EB":"#999",minWidth:40}}>{time||"—"}</span>
-            <span style={{fontSize:13,fontWeight:600,flex:1}}>{ev.title}</span>
-            {ev.attendees?.length>0&&<span style={{fontSize:10,color:"#999"}}>👤 {ev.attendees.length}</span>}
-            {ev.location&&<span style={{fontSize:10,color:"#999"}}>📍</span>}
-          </div>})}
+    {/* ══ ZONE PRINCIPALE : Emails | Aujourd'hui (côte à côte) ══ */}
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:20}}>
+      {/* Colonne gauche: Boîte de réception */}
+      <div style={{background:"#fff",borderRadius:14,border:"1px solid #F0EFEC",padding:16,maxHeight:400,overflowY:"auto"}}>
+        <InboxPanel emails={inboxEmails} setEmails={setInboxEmails} dbs={dbs}/>
+        {inboxEmails.length===0&&<div style={{textAlign:"center",padding:20,color:"#ccc",fontSize:12}}>Aucun email récent</div>}
       </div>
-    </div>}
-    {/* ══ EMAILS RÉCENTS ══ */}
-    {inboxEmails.length>0&&<InboxPanel emails={inboxEmails} setEmails={setInboxEmails} dbs={dbs}/>}
-    {/* ══ URGENCES ══ */}
-    {(livRetard.length>0||livUrgent.length>0||risquesCritiques.length>0||facAF.length>0)&&<div style={{background:"#FEF2F2",border:"1.5px solid #DC262618",borderRadius:14,padding:18,marginBottom:20}}>
-      <h3 style={{margin:"0 0 12px",fontSize:15,fontWeight:800,color:"#DC2626"}}>🚨 Urgences & retards</h3>
-      {risquesCritiques.map(r=><div key={r.url} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",background:"#fff",borderRadius:8,border:"1px solid #DC262618",marginBottom:5}}>
-        <span style={{fontSize:16}}>🔴</span><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{r["Type d'alerte"]||"Risque"} — {r.Nom}</div><div style={{fontSize:11,color:"#888"}}>{socById[socUrl(r)]?.Nom||""}</div></div>{r["Montant exposé (€)"]&&<span style={{fontSize:13,fontWeight:700,color:"#DC2626"}}>{fmt(r["Montant exposé (€)"])}</span>}<Tag color={EC[r.Statut]}>{r.Statut}</Tag>
-      </div>)}
-      {livRetard.map(l=><div key={l.url} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",background:"#fff",borderRadius:8,border:"1px solid #DC262618",marginBottom:5}}>
-        <span style={{fontSize:16}}>⏰</span><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{l.Nom}</div><div style={{fontSize:11,color:"#888"}}>{socById[socUrl(l)]?.Nom||""} · {userName(l["Assigned To"])}</div></div><span style={{fontSize:12,fontWeight:700,color:"#DC2626"}}>{Math.abs(daysUntil(l["date:Deadline:start"]))}j retard</span>
-      </div>)}
-      {livUrgent.map(l=><div key={l.url} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",background:"#FFFBEB",borderRadius:8,border:"1px solid #D9770618",marginBottom:5}}>
-        <span style={{fontSize:16}}>⚡</span><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{l.Nom}</div><div style={{fontSize:11,color:"#888"}}>{socById[socUrl(l)]?.Nom||""} · {userName(l["Assigned To"])}</div></div><span style={{fontSize:12,fontWeight:600,color:"#D97706"}}>{daysUntil(l["date:Deadline:start"])===0?"Aujourd'hui":daysUntil(l["date:Deadline:start"])+"j"}</span>
-      </div>)}
-      {facAF.map(f=><div key={f.url} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",background:"#fff",borderRadius:8,border:"1px solid #D9770618",marginBottom:5}}>
-        <span style={{fontSize:16}}>💶</span><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{f.Nom}</div><div style={{fontSize:11,color:"#888"}}>{socById[socUrl(f)]?.Nom||""}</div></div><span style={{fontSize:14,fontWeight:700}}>{f.Montant?fmt(f.Montant):"—"}</span>
-      </div>)}
-    </div>}
+      {/* Colonne droite: Aujourd'hui + semaine */}
+      <div style={{background:"#fff",borderRadius:14,border:"1px solid #F0EFEC",padding:16,maxHeight:400,overflowY:"auto"}}>
+        <h3 style={{margin:"0 0 12px",fontSize:14,fontWeight:800,color:"#2563EB"}}>📅 Aujourd'hui</h3>
+        {/* Google Calendar events today */}
+        {calEvents.filter(e=>e.start?.slice(0,10)===todayStr).map((ev,i)=><div key={"gc"+i} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:"#EFF6FF",borderRadius:6,marginBottom:4,cursor:"pointer"}} onClick={()=>ev.link&&window.open(ev.link,"_blank")}>
+          <span style={{fontSize:11,fontWeight:700,color:"#2563EB",minWidth:35}}>{ev.start?.includes("T")?ev.start.slice(11,16):"—"}</span>
+          <span style={{fontSize:12,fontWeight:600,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.title}</span>
+          {ev.attendees?.length>0&&<span style={{fontSize:10,color:"#999"}}>👤{ev.attendees.length}</span>}
+        </div>)}
+        {/* CRM réunions today */}
+        {reunToday.map(r=><div key={r.url} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:"#F5F3FF",borderRadius:6,marginBottom:4}}>
+          <span style={{fontSize:11,fontWeight:700,color:"#7C3AED",minWidth:35}}>📅</span>
+          <span style={{fontSize:12,fontWeight:600,flex:1}}>{r.Nom}</span>
+          {r.Type&&<Tag color={r.Type==="Client"?"#2563EB":"#7C3AED"}>{r.Type}</Tag>}
+        </div>)}
+        {/* Livrables deadline today */}
+        {livToday.map(l=><div key={l.url} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:"#FFFBEB",borderRadius:6,marginBottom:4}}>
+          <span style={{fontSize:11,fontWeight:700,color:"#D97706",minWidth:35}}>📋</span>
+          <span style={{fontSize:12,fontWeight:600,flex:1}}>{l.Nom}</span>
+          <Tag color={EC[l.Etat]}>{l.Etat}</Tag>
+        </div>)}
+        {calEvents.filter(e=>e.start?.slice(0,10)===todayStr).length===0&&reunToday.length===0&&livToday.length===0&&<div style={{textAlign:"center",padding:12,color:"#ccc",fontSize:12}}>Rien de prévu aujourd'hui</div>}
 
-    {/* ══ ACTIONS CETTE SEMAINE ══ */}
-    {(livSemaine.length>0||reunSemaine.length>0||risqSemaine.length>0)&&<div style={{background:"#EFF6FF",border:"1.5px solid #2563EB18",borderRadius:14,padding:18,marginBottom:20}}>
-      <h3 style={{margin:"0 0 12px",fontSize:15,fontWeight:800,color:"#2563EB"}}>📅 Cette semaine ({livSemaine.length+reunSemaine.length+risqSemaine.length} actions)</h3>
-      <div style={{display:"grid",gridTemplateColumns:livSemaine.length&&reunSemaine.length&&risqSemaine.length?"1fr 1fr 1fr":livSemaine.length&&(reunSemaine.length||risqSemaine.length)?"1fr 1fr":"1fr",gap:12}}>
-        {livSemaine.length>0&&<div><div style={{fontSize:11,fontWeight:600,color:"#D97706",textTransform:"uppercase",marginBottom:6}}>📋 Livrables ({livSemaine.length})</div>
-          {livSemaine.sort((a,b)=>daysUntil(a["date:Deadline:start"])-daysUntil(b["date:Deadline:start"])).map(l=><div key={l.url} style={{background:"#fff",borderRadius:6,padding:"6px 10px",marginBottom:4,fontSize:12}}>
-            <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontWeight:600}}>{l.Nom}</span><span style={{color:"#D97706",fontWeight:600,fontSize:11}}>{daysUntil(l["date:Deadline:start"])}j</span></div><div style={{color:"#888",fontSize:11}}>{socById[socUrl(l)]?.Nom||""} · {userName(l["Assigned To"])}</div>
+        {/* Cette semaine (réunions à venir) */}
+        {reunWeek.length>0&&<>
+          <h3 style={{margin:"16px 0 8px",fontSize:13,fontWeight:700,color:"#7C3AED"}}>📅 Cette semaine ({reunWeek.length})</h3>
+          {reunWeek.slice(0,5).map(r=><div key={r.url} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 10px",borderRadius:6,marginBottom:3,border:"1px solid #F0EFEC"}}>
+            <span style={{fontSize:11,fontWeight:600,color:"#999",minWidth:50}}>{r["date:Date:start"]?.slice(5)}</span>
+            <span style={{fontSize:12,fontWeight:500,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.Nom}</span>
+            {r.Type&&<Tag color={r.Type==="Client"?"#2563EB":"#7C3AED"}>{r.Type}</Tag>}
           </div>)}
-        </div>}
-        {reunSemaine.length>0&&<div><div style={{fontSize:11,fontWeight:600,color:"#7C3AED",textTransform:"uppercase",marginBottom:6}}>📅 Réunions ({reunSemaine.length})</div>
-          {reunSemaine.map(r=><div key={r.url} style={{background:"#fff",borderRadius:6,padding:"6px 10px",marginBottom:4,fontSize:12}}>
-            <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontWeight:600}}>{r.Nom}</span><Tag color={r.Type==="Client"?"#2563EB":"#7C3AED"}>{r.Type}</Tag></div><div style={{color:"#888",fontSize:11}}>{r["date:Date:start"]} · {socById[socUrl(r)]?.Nom||""}</div>
-          </div>)}
-        </div>}
-        {risqSemaine.length>0&&<div><div style={{fontSize:11,fontWeight:600,color:"#DC2626",textTransform:"uppercase",marginBottom:6}}>⚠️ Actions risques ({risqSemaine.length})</div>
-          {risqSemaine.map(r=><div key={r.url} style={{background:"#fff",borderRadius:6,padding:"6px 10px",marginBottom:4,fontSize:12}}>
-            <div style={{fontWeight:600}}>{r.Nom}</div><div style={{color:"#888",fontSize:11}}>{r["date:Date limite action:start"]} · {r["Actions à mener"]?.slice(0,50)||""}</div>
-          </div>)}
-        </div>}
+        </>}
       </div>
+    </div>
+
+    {/* ══ À TRAITER (urgences + retards + factures — unifié) ══ */}
+    {aTraiter.length>0&&<div style={{background:"#FEF2F2",border:"1.5px solid #DC262618",borderRadius:14,padding:18,marginBottom:20}}>
+      <h3 style={{margin:"0 0 12px",fontSize:15,fontWeight:800,color:"#DC2626"}}>🔴 À traiter ({aTraiter.length})</h3>
+      {aTraiter.slice(0,12).map((item,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",background:item.type==="retard"||item.type==="risque"?"#fff":"#FFFBEB",borderRadius:8,border:"1px solid "+(item.type==="retard"||item.type==="risque"?"#DC262618":"#D9770618"),marginBottom:4}}>
+        <span style={{fontSize:15}}>{item.icon}</span>
+        <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.title}</div>
+          {item.soc&&<div style={{fontSize:11,color:"#888"}}>{item.soc}</div>}
+        </div>
+        {item.detail&&<span style={{fontSize:12,fontWeight:700,color:item.detailColor||"#111",flexShrink:0}}>{item.detail}</span>}
+        {item.badge&&<Tag color={item.badgeColor||"#999"}>{item.badge}</Tag>}
+      </div>)}
     </div>}
 
+    {/* ══ ACTIVITÉ (Charts CA + Livrables) ══ */}
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:20}}>
+      <div style={{background:"#fff",borderRadius:12,border:"1px solid "+T.bdr,padding:16}}>
+        <h4 style={{margin:"0 0 10px",fontSize:13,fontWeight:700}}>💶 Chiffre d'affaires</h4>
+        {caChartData.length>0?<ResponsiveContainer width="100%" height={180}><BarChart data={caChartData}><XAxis dataKey="name" tick={{fontSize:10}}/><YAxis tick={{fontSize:10}}/><Tooltip/><Bar dataKey="Payé" stackId="a" fill="#27AE60"/><Bar dataKey="Envoyé" stackId="a" fill="#3498DB"/><Bar dataKey="A facturer" stackId="a" fill="#F39C12"/></BarChart></ResponsiveContainer>:<div style={{textAlign:"center",padding:20,color:"#ccc",fontSize:12}}>Pas de données</div>}
+      </div>
+      <div style={{background:"#fff",borderRadius:12,border:"1px solid "+T.bdr,padding:16}}>
+        <h4 style={{margin:"0 0 10px",fontSize:13,fontWeight:700}}>📋 Livrables par état</h4>
+        {pieData.length>0?<ResponsiveContainer width="100%" height={180}><PieChart><Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60} label={({name,percent})=>name+" "+Math.round(percent*100)+"%"}>{pieData.map((_,i)=><Cell key={i} fill={PIE_COLORS[i%PIE_COLORS.length]}/>)}</Pie><Legend iconSize={8} wrapperStyle={{fontSize:10}}/></PieChart></ResponsiveContainer>:<div style={{textAlign:"center",padding:20,color:"#ccc",fontSize:12}}>Pas de données</div>}
+      </div>
+    </div>
 
-    {/* ══ CALENDRIER + GRAPHIQUES + COLLABORATEURS ══ */}
+    {/* ══ CALENDRIER ══ */}
     {(() => {
       const firstDay=new Date(calYear,calMonth,1).getDay();const daysInMonth=new Date(calYear,calMonth+1,0).getDate();
       const offset=(firstDay+6)%7;const MNAMES=["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];const DNAMES=["L","M","M","J","V","S","D"];
@@ -403,135 +440,56 @@ function DashboardView({dbs,crmUser}){
       risques.forEach(r=>{const d=r["date:Date limite action:start"];if(d&&r.Statut!=="Résolu"&&r.Statut!=="Classé sans suite"){if(!events[d])events[d]=[];events[d].push({type:"risque",name:r.Nom,color:"#DC2626"})}});
       const prevMonth=()=>{if(calMonth===0){setCalMonth(11);setCalYear(calYear-1)}else setCalMonth(calMonth-1)};
       const nextMonth=()=>{if(calMonth===11){setCalMonth(0);setCalYear(calYear+1)}else setCalMonth(calMonth+1)};
-      const caChartData=Object.keys(caByEx).sort().map(ex=>({name:ex,"Payé":caByEx[ex].paye,"Envoyé":caByEx[ex].envoye,"A facturer":caByEx[ex].afact}));
-      const livByEtat={};livrables.forEach(l=>{const e=l.Etat||"N/A";livByEtat[e]=(livByEtat[e]||0)+1});
-      const pieData=Object.entries(livByEtat).map(([name,value])=>({name,value}));
-      const PIE_COLORS=["#3498DB","#F39C12","#27AE60","#95A5A6","#E74C3C"];
 
-      return <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
-        <div>
-          <div style={{background:"#fff",borderRadius:12,border:"1px solid "+T.bdr,padding:16,marginBottom:16}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-              <button onClick={prevMonth} style={{background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#999",padding:"2px 8px"}}>‹</button>
-              <span style={{fontSize:14,fontWeight:700}}>{MNAMES[calMonth]} {calYear}</span>
-              <button onClick={nextMonth} style={{background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#999",padding:"2px 8px"}}>›</button>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,textAlign:"center"}}>
-              {DNAMES.map(d=><div key={d} style={{fontSize:10,fontWeight:600,color:"#999",padding:3}}>{d}</div>)}
-              {Array.from({length:offset}).map((_,i)=><div key={"e"+i}/>)}
-              {Array.from({length:daysInMonth}).map((_,i)=>{const day=i+1;const dateStr=`${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;const isToday=dateStr===TODAY;const de=events[dateStr]||[];
-                return <div key={day} title={de.map(e=>e.name).join("\n")} style={{padding:"4px 2px",borderRadius:6,fontSize:12,fontWeight:isToday?700:400,background:isToday?T.pri:"transparent",color:isToday?"#fff":T.txt,border:de.length?"1.5px solid "+de[0].color:"1.5px solid transparent",cursor:de.length?"pointer":"default"}}>
-                  {day}{de.length>0&&<div style={{display:"flex",gap:2,justifyContent:"center",marginTop:1}}>
-                    {de.some(e=>e.type==="deadline")&&<div style={{width:4,height:4,borderRadius:2,background:"#D97706"}}/>}
-                    {de.some(e=>e.type==="reunion")&&<div style={{width:4,height:4,borderRadius:2,background:"#7C3AED"}}/>}
-                    {de.some(e=>e.type==="facture")&&<div style={{width:4,height:4,borderRadius:2,background:"#16A34A"}}/>}
-                    {de.some(e=>e.type==="risque")&&<div style={{width:4,height:4,borderRadius:2,background:"#DC2626"}}/>}
-                  </div>}
-                </div>})}
-            </div>
-            <div style={{display:"flex",gap:10,marginTop:8,justifyContent:"center",fontSize:10,color:"#999"}}>
-              <span style={{display:"flex",alignItems:"center",gap:3}}><span style={{width:6,height:6,borderRadius:3,background:"#D97706"}}/> Deadline</span>
-              <span style={{display:"flex",alignItems:"center",gap:3}}><span style={{width:6,height:6,borderRadius:3,background:"#7C3AED"}}/> Réunion</span>
-              <span style={{display:"flex",alignItems:"center",gap:3}}><span style={{width:6,height:6,borderRadius:3,background:"#16A34A"}}/> Facture</span>
-              <span style={{display:"flex",alignItems:"center",gap:3}}><span style={{width:6,height:6,borderRadius:3,background:"#DC2626"}}/> Risque</span>
-            </div>
-          </div>
-          <div style={{background:"#fff",borderRadius:12,border:"1px solid "+T.bdr,padding:16}}>
-            <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>💰 CA par exercice</div>
-            {caChartData.length===0?<div style={{color:"#999",fontSize:12,fontStyle:"italic",textAlign:"center",padding:30}}>Aucune donnée</div>:
-            <ResponsiveContainer width="100%" height={180}><BarChart data={caChartData} margin={{top:5,right:10,left:0,bottom:5}}>
-              <XAxis dataKey="name" tick={{fontSize:11,fill:"#999"}} axisLine={false} tickLine={false}/><YAxis tick={{fontSize:10,fill:"#999"}} axisLine={false} tickLine={false} tickFormatter={v=>(v/1000)+"k"}/>
-              <Tooltip formatter={v=>v.toLocaleString("fr-FR")+" €"} contentStyle={{fontSize:12,borderRadius:8,border:"1px solid #E8E6E1"}}/>
-              <Bar dataKey="Payé" stackId="a" fill="#16A34A"/><Bar dataKey="Envoyé" stackId="a" fill="#3498DB"/><Bar dataKey="A facturer" stackId="a" fill="#F39C12" radius={[4,4,0,0]}/>
-            </BarChart></ResponsiveContainer>}
-            <div style={{display:"flex",gap:12,justifyContent:"center",fontSize:10,color:"#999",marginTop:6}}>
-              <span style={{display:"flex",alignItems:"center",gap:3}}><span style={{width:8,height:8,borderRadius:2,background:"#16A34A"}}/> Payé</span>
-              <span style={{display:"flex",alignItems:"center",gap:3}}><span style={{width:8,height:8,borderRadius:2,background:"#3498DB"}}/> Envoyé</span>
-              <span style={{display:"flex",alignItems:"center",gap:3}}><span style={{width:8,height:8,borderRadius:2,background:"#F39C12"}}/> A facturer</span>
-            </div>
-          </div>
+      return <div style={{background:"#fff",borderRadius:12,border:"1px solid "+T.bdr,padding:16,marginBottom:20}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <button onClick={prevMonth} style={{background:"none",border:"none",cursor:"pointer",fontSize:16}}>←</button>
+          <span style={{fontSize:14,fontWeight:700}}>{MNAMES[calMonth]} {calYear}</span>
+          <button onClick={nextMonth} style={{background:"none",border:"none",cursor:"pointer",fontSize:16}}>→</button>
         </div>
-        <div>
-          <div style={{background:"#fff",borderRadius:12,border:"1px solid "+T.bdr,padding:16,marginBottom:16}}>
-            <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>📋 Livrables par état</div>
-            {pieData.length===0?<div style={{color:"#999",fontSize:12,fontStyle:"italic",textAlign:"center",padding:30}}>Aucun</div>:
-            <ResponsiveContainer width="100%" height={180}><PieChart><Pie data={pieData} cx="50%" cy="50%" innerRadius={40} outerRadius={70} dataKey="value" paddingAngle={3} strokeWidth={0}>{pieData.map((_,i)=><Cell key={i} fill={EC[pieData[i].name]||PIE_COLORS[i%PIE_COLORS.length]}/>)}</Pie>
-              <Tooltip formatter={(v,name)=>[v+" livrable"+(v>1?"s":""),name]} contentStyle={{fontSize:12,borderRadius:8,border:"1px solid #E8E6E1"}}/></PieChart></ResponsiveContainer>}
-            <div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap",fontSize:10,color:"#999"}}>{pieData.map((d,i)=><span key={d.name} style={{display:"flex",alignItems:"center",gap:3}}><span style={{width:8,height:8,borderRadius:2,background:EC[d.name]||PIE_COLORS[i%PIE_COLORS.length]}}/> {d.name} ({d.value})</span>)}</div>
-          </div>
-          <div style={{background:"#fff",borderRadius:12,border:"1px solid "+T.bdr,padding:16}}>
-            <div style={{fontSize:13,fontWeight:700,marginBottom:10}}>👥 Charge par collaborateur</div>
-            {USERS.map(u=>{const uL=userLiv(u.id);const uU=userUrg(u.id);
-              return <div key={u.id} onClick={()=>setUserView(u.id)} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",background:T.bg,borderRadius:8,marginBottom:5,cursor:"pointer",border:"1px solid transparent",transition:"border .15s"}} onMouseEnter={e=>e.currentTarget.style.borderColor=u.color+"40"} onMouseLeave={e=>e.currentTarget.style.borderColor="transparent"}>
-                <Avatar uid={u.id} size={28}/><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{u.short}</div><div style={{fontSize:11,color:"#999"}}>{uL.length} livrable{uL.length>1?"s":""}</div></div>
-                {uU.length>0&&<Tag color="#DC2626">{uU.length} urgent{uU.length>1?"s":""}</Tag>}
-                <div style={{fontSize:18,fontWeight:800,color:u.color}}>{uL.filter(l=>l.Etat!=="Terminé"&&l.Etat!=="Annulé").length}</div>
-              </div>})}
-          </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:1}}>
+          {DNAMES.map((d,i)=><div key={i} style={{textAlign:"center",fontSize:10,fontWeight:600,color:"#999",padding:4}}>{d}</div>)}
+          {Array.from({length:offset}).map((_,i)=><div key={"e"+i}/>)}
+          {Array.from({length:daysInMonth}).map((_,i)=>{const day=i+1;const dateStr=`${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;const evts=events[dateStr]||[];const isToday=dateStr===TODAY;
+            return <div key={day} style={{textAlign:"center",padding:"4px 2px",borderRadius:6,background:isToday?"#2563EB":evts.length?"#F8F8F6":"transparent",color:isToday?"#fff":"#111",fontSize:11,fontWeight:isToday?700:400,position:"relative",cursor:evts.length?"pointer":"default"}} title={evts.map(e=>e.name).join("\n")}>
+              {day}{evts.length>0&&<div style={{display:"flex",justifyContent:"center",gap:1,marginTop:1}}>{evts.slice(0,3).map((e,j)=><div key={j} style={{width:4,height:4,borderRadius:2,background:isToday?"#fff":e.color}}/>)}</div>}
+            </div>})}
         </div>
       </div>;
     })()}
 
     {/* ══ PAR SOCIÉTÉ ══ */}
     <h3 style={{margin:"0 0 14px",fontSize:15,fontWeight:800}}>🏢 Par société</h3>
-    <div style={{display:"grid",gap:10,marginBottom:24}}>
-      {socData.map(({soc,sLivActifs,sRetard,sFac,sDos,sRisActifs,sCA,sAFact,sReuAVenir})=>{
-        const isExp=expandedSoc===soc.url;const hasIssues=sRetard.length>0||sRisActifs.some(r=>r["Sévérité"]==="Critique");
-        return <div key={soc.url} style={{background:"#fff",borderRadius:12,border:"1.5px solid "+(hasIssues?"#DC262620":T.bdr),overflow:"hidden"}}>
-          <div onClick={()=>setExpandedSoc(isExp?null:soc.url)} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 18px",cursor:"pointer",background:hasIssues?"#FEF2F240":"transparent"}}>
-            <div style={{width:42,height:42,borderRadius:10,background:"#2563EB14",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:800,color:"#2563EB",flexShrink:0}}>{(soc.Nom||"?")[0]}</div>
+    <div style={{display:"grid",gap:8}}>
+      {socData.filter(s=>s.urgencyScore>0||s.sCA>0||s.sLivActifs.length>0).map(({soc,sLivActifs,sRetard,sFac,sDos,sCA,sAFact,sRisActifs,sReuAVenir})=>{
+        const isOpen=expandedSoc===soc.url;const hasAlert=sRetard.length>0||sRisActifs.some(r=>r["Sévérité"]==="Critique");
+        return <div key={soc.url} style={{background:"#fff",borderRadius:10,border:"1px solid "+(hasAlert?"#DC262630":"#F0EFEC"),overflow:"hidden"}}>
+          <div onClick={()=>setExpandedSoc(isOpen?null:soc.url)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",cursor:"pointer",userSelect:"none"}}>
+            <div style={{width:32,height:32,borderRadius:8,background:hasAlert?"#FEE2E2":"#2563EB14",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,color:hasAlert?"#DC2626":"#2563EB"}}>{soc.Nom?.[0]||"?"}</div>
             <div style={{flex:1}}>
-              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}>
-                <span style={{fontSize:15,fontWeight:700}}>{soc.Nom}</span>
-                {soc.Statut&&<Badge color={soc.Statut==="Client"?"#2563EB":soc.Statut==="Prospect"?"#D97706":"#16A34A"}>{soc.Statut}</Badge>}
-                {sRetard.length>0&&<Badge color="#DC2626">{sRetard.length} retard{sRetard.length>1?"s":""}</Badge>}
-                {sRisActifs.filter(r=>r["Sévérité"]==="Critique").length>0&&<Badge color="#DC2626">🔴 critique</Badge>}
-              </div>
-              <div style={{display:"flex",gap:14,fontSize:11,color:"#999"}}>
-                <span>📋 {sLivActifs.length}</span><span>📁 {sDos.length}</span>
-                {sCA>0&&<span>💶 {fmt(sCA)}</span>}
-                {sAFact.length>0&&<span style={{color:"#D97706"}}>⏳ {sAFact.length} à fact.</span>}
-                {sReuAVenir.length>0&&<span>📅 {sReuAVenir.length}</span>}
+              <div style={{fontSize:13,fontWeight:700}}>{soc.Nom}<Badge color={soc.Statut==="Client"?"#2563EB":soc.Statut==="Prospect"?"#D97706":"#16A34A"}>{soc.Statut}</Badge></div>
+              <div style={{display:"flex",gap:10,fontSize:11,color:"#888"}}>
+                {sLivActifs.length>0&&<span>📋 {sLivActifs.length}</span>}{sRetard.length>0&&<span style={{color:"#DC2626",fontWeight:600}}>⏰ {sRetard.length}</span>}{sDos.length>0&&<span>📁 {sDos.length}</span>}{sCA>0&&<span style={{fontWeight:600}}>💶 {fmt(sCA)}</span>}{sRisActifs.length>0&&<span style={{color:"#DC2626"}}>🚨 {sRisActifs.length}</span>}
               </div>
             </div>
-            <span style={{fontSize:16,color:"#ccc",transition:"transform .2s",transform:isExp?"rotate(90deg)":"rotate(0)"}}>▸</span>
+            <span style={{fontSize:11,transform:isOpen?"rotate(90deg)":"rotate(0deg)",transition:"transform .2s"}}>▶</span>
           </div>
-          {isExp&&<div style={{padding:"0 18px 16px",borderTop:"1px solid "+T.bdr}}>
-            {sRetard.length>0&&<div style={{marginTop:12}}><div style={{fontSize:11,fontWeight:700,color:"#DC2626",textTransform:"uppercase",marginBottom:6}}>⏰ En retard ({sRetard.length})</div>
-              {sRetard.map(l=><div key={l.url} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:"#FEF2F2",borderRadius:6,marginBottom:4,fontSize:12}}>
-                <div style={{flex:1,fontWeight:600}}>{l.Nom}</div><Avatar uid={userIds(l["Assigned To"])[0]} size={20}/><span style={{color:"#DC2626",fontWeight:600}}>{Math.abs(daysUntil(l["date:Deadline:start"]))}j</span>
-              </div>)}
+          {isOpen&&<div style={{padding:"0 14px 12px",borderTop:"1px solid #F0EFEC"}}>
+            {sReuAVenir.length>0&&<div style={{marginTop:10}}><div style={{fontSize:10,fontWeight:600,color:"#7C3AED",textTransform:"uppercase",marginBottom:4}}>Prochaines réunions</div>
+              {sReuAVenir.slice(0,3).map(r=><div key={r.url} style={{fontSize:12,padding:"3px 0",display:"flex",justifyContent:"space-between"}}><span>{r.Nom}</span><span style={{color:"#999",fontSize:11}}>{r["date:Date:start"]?.slice(5)}</span></div>)}
             </div>}
-            {sRisActifs.length>0&&<div style={{marginTop:12}}><div style={{fontSize:11,fontWeight:700,color:"#D97706",textTransform:"uppercase",marginBottom:6}}>⚠️ Risques ({sRisActifs.length})</div>
-              {sRisActifs.map(r=>{const sc=r["Sévérité"]==="Critique"?"#DC2626":r["Sévérité"]==="Attention"?"#D97706":"#2563EB";return <div key={r.url} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:T.bg,borderRadius:6,marginBottom:4,fontSize:12}}>
-                <span>{r["Sévérité"]==="Critique"?"🔴":"🟠"}</span><div style={{flex:1,fontWeight:600}}>{r.Nom}</div><Tag color={sc}>{r["Type d'alerte"]}</Tag>{r["Montant exposé (€)"]&&<span style={{fontWeight:700,color:sc}}>{fmt(r["Montant exposé (€)"])}</span>}
-              </div>})}
+            {sRetard.length>0&&<div style={{marginTop:10}}><div style={{fontSize:10,fontWeight:600,color:"#DC2626",textTransform:"uppercase",marginBottom:4}}>En retard</div>
+              {sRetard.map(l=><div key={l.url} style={{fontSize:12,padding:"3px 0",display:"flex",justifyContent:"space-between"}}><span>{l.Nom}</span><span style={{color:"#DC2626",fontWeight:600,fontSize:11}}>{Math.abs(daysUntil(l["date:Deadline:start"]))}j</span></div>)}
             </div>}
-            {sLivActifs.length>0&&<div style={{marginTop:12}}><div style={{fontSize:11,fontWeight:700,color:"#2563EB",textTransform:"uppercase",marginBottom:6}}>📋 Livrables ({sLivActifs.length})</div>
-              {sLivActifs.sort((a,b)=>daysUntil(a["date:Deadline:start"])-daysUntil(b["date:Deadline:start"])).map(l=>{const d=daysUntil(l["date:Deadline:start"]);return <div key={l.url} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:T.bg,borderRadius:6,marginBottom:4,fontSize:12}}>
-                <div style={{flex:1,fontWeight:600}}>{l.Nom}</div><Tag color={EC[l.Etat]}>{l.Etat}</Tag>{l["Priorité"]&&<Tag color={PC[l["Priorité"]]}>{l["Priorité"]}</Tag>}<Avatar uid={userIds(l["Assigned To"])[0]} size={18}/><span style={{fontSize:11,color:d<0?"#DC2626":d<=3?"#D97706":"#999",fontWeight:600,minWidth:30,textAlign:"right"}}>{l["date:Deadline:start"]?.slice(5)||"—"}</span>
-              </div>})}
-            </div>}
-            {sFac.length>0&&<div style={{marginTop:12}}><div style={{fontSize:11,fontWeight:700,color:"#16A34A",textTransform:"uppercase",marginBottom:6}}>💶 Factures ({sFac.length} · {fmt(sCA)})</div>
-              {sFac.map(f=><div key={f.url} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:T.bg,borderRadius:6,marginBottom:4,fontSize:12}}>
-                <div style={{flex:1,fontWeight:600}}>{f.Nom}</div><Tag color={EC[f["État"]]}>{f["État"]}</Tag><span style={{fontWeight:700}}>{f.Montant?fmt(f.Montant):"—"}</span>
-              </div>)}
-            </div>}
-            {sReuAVenir.length>0&&<div style={{marginTop:12}}><div style={{fontSize:11,fontWeight:700,color:"#7C3AED",textTransform:"uppercase",marginBottom:6}}>📅 Réunions ({sReuAVenir.length})</div>
-              {sReuAVenir.slice(0,3).map(r=><div key={r.url} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:T.bg,borderRadius:6,marginBottom:4,fontSize:12}}>
-                <div style={{flex:1,fontWeight:600}}>{r.Nom}</div><Tag color={r.Type==="Client"?"#2563EB":"#7C3AED"}>{r.Type}</Tag><span style={{color:"#999"}}>{r["date:Date:start"]}</span>
-              </div>)}
+            {sAFact.length>0&&<div style={{marginTop:10}}><div style={{fontSize:10,fontWeight:600,color:"#D97706",textTransform:"uppercase",marginBottom:4}}>À facturer</div>
+              {sAFact.map(f=><div key={f.url} style={{fontSize:12,padding:"3px 0",display:"flex",justifyContent:"space-between"}}><span>{f.Nom}</span><span style={{fontWeight:600}}>{f.Montant?fmt(f.Montant):"—"}</span></div>)}
             </div>}
           </div>}
         </div>})}
     </div>
-
   </div>;
 }
 
-/* ══════════════════════════════════════
-   MANAGER VIEW (simplified — CRUD cards)
-   ══════════════════════════════════════ */
 function ManagerView({dbs,tab,setTab,onModal,onDetail,onDelete}){
   const[search,setSearch]=useState("");
   const needsGroupBySoc=dbs[tab]&&(dbs[tab].name.includes("Dossier")||dbs[tab].name.includes("Projet")||dbs[tab].name.includes("Jalon")||dbs[tab].name.includes("Contact"));
