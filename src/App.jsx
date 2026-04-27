@@ -48,6 +48,9 @@ async function gCalList(){const r=await fetch("/api/google?service=calendar&acti
 async function gmailSearch(q){const r=await fetch("/api/google?service=gmail&action=search",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({q})});if(!r.ok)return[];const d=await r.json();return d.messages||[]}
 async function gDriveSearch(q){const r=await fetch("/api/google?service=drive&action=search",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({q})});if(!r.ok)return[];const d=await r.json();return d.files||[]}
 
+async function gmailTrash(id){const r=await fetch("/api/google?service=gmail&action=trash",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messageId:id})});return r.json()}
+async function gmailMarkRead(id){const r=await fetch("/api/google?service=gmail&action=read",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messageId:id})});return r.json()}
+
 /* ══ HELPERS ══ */
 const EDITABLE=new Set(["title","text","rich_text","email","phone_number","url","number","select","multi_select","checkbox","date","place","status","person"]);
 const READONLY=new Set(["formula","rollup","created_time","last_edited_time","unique_id","created_by","last_edited_by"]);
@@ -119,6 +122,91 @@ function LoginScreen({error}){
         Se connecter avec Google
       </a>
       <p style={{color:"#ccc",fontSize:11,marginTop:20}}>Accès réservé à l'équipe Point du Jour Conseil</p>
+    </div>
+  </div>;
+}
+
+/* ══════════════════════════════════════
+   INBOX PANEL (Dashboard email management)
+   ══════════════════════════════════════ */
+function InboxPanel({emails,setEmails,dbs}){
+  const[assocId,setAssocId]=useState(null); // email id being associated
+  const[assocType,setAssocType]=useState(0); // index in dbs
+  const[assocSearch,setAssocSearch]=useState("");
+  const[assocBusy,setAssocBusy]=useState(false);
+
+  // Bases available for association (those with relations to other bases)
+  const assocBases=[
+    {idx:dbs.findIndex(d=>d.name.includes("Société")),label:"🏢 Société",icon:"🏢"},
+    {idx:dbs.findIndex(d=>d.name.includes("Dossier")&&!d.name.includes("Document")),label:"📁 Dossier",icon:"📁"},
+    {idx:dbs.findIndex(d=>d.name.includes("Projet")),label:"🚀 Projet",icon:"🚀"},
+    {idx:dbs.findIndex(d=>d.name.includes("Jalon")),label:"🎯 Jalon",icon:"🎯"},
+    {idx:dbs.findIndex(d=>d.name.includes("Livrable")),label:"📋 Livrable",icon:"📋"},
+    {idx:dbs.findIndex(d=>d.name.includes("Réunion")),label:"📅 Réunion",icon:"📅"},
+  ].filter(b=>b.idx>=0);
+
+  const handleTrash=async(emailId)=>{
+    if(!confirm("Supprimer cet email ?"))return;
+    try{await gmailTrash(emailId);setEmails(prev=>prev.filter(e=>e.id!==emailId))}catch(e){alert("Erreur: "+e.message)}
+  };
+
+  const handleAssociate=async(emailMsg,targetRow)=>{
+    setAssocBusy(true);
+    try{
+      // Create a Document 2026 entry linked to the target entity
+      const docsDb=dbs.find(d=>d.name.includes("Document"));
+      if(!docsDb){alert("Base Documents introuvable");setAssocBusy(false);return}
+      const targetDb=dbs[assocType];
+      // Find the relation field name in Documents that points to the target base
+      const relField=Object.entries(docsDb.schema).find(([,d])=>d.type==="relation"&&d.dataSourceUrl===targetDb.dsUrl);
+      const props={Nom:"📧 "+emailMsg.subject,"userDefined:URL":"https://mail.google.com/mail/u/0/#inbox/"+emailMsg.id};
+      if(relField)props[relField[0]]=JSON.stringify([targetRow.url]);
+      await createPage(docsDb.dsId,props,docsDb.schema);
+      // Mark email as read
+      try{await gmailMarkRead(emailMsg.id)}catch{}
+      setEmails(prev=>prev.filter(e=>e.id!==emailMsg.id));
+      setAssocId(null);setAssocSearch("");
+      alert("✅ Email associé à "+targetRow[targetDb.titleProp]+" !");
+    }catch(e){alert("Erreur: "+e.message)}
+    setAssocBusy(false);
+  };
+
+  return <div style={{marginBottom:20}}>
+    <h3 style={{margin:"0 0 10px",fontSize:14,fontWeight:800,color:"#D97706"}}>📧 Emails récents ({emails.length} non lus)</h3>
+    <div style={{display:"grid",gap:4}}>
+      {emails.slice(0,8).map((m)=><div key={m.id}>
+        <div style={{display:"flex",gap:8,padding:"8px 12px",background:"#fff",borderRadius:8,border:"1px solid "+(assocId===m.id?"#2563EB40":"#F0EFEC"),alignItems:"center"}}>
+          <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>window.open("https://mail.google.com/mail/u/0/#inbox/"+m.id,"_blank")}>
+            <div style={{fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.subject||"(sans objet)"}</div>
+            <div style={{fontSize:11,color:"#888",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.from?.split("<")[0]?.trim()} — {m.snippet?.slice(0,60)}</div>
+          </div>
+          <div style={{fontSize:10,color:"#BBB",whiteSpace:"nowrap",flexShrink:0}}>{m.date?.split(",")[0]||""}</div>
+          <div style={{display:"flex",gap:3,flexShrink:0}}>
+            <button onClick={()=>window.open("https://mail.google.com/mail/u/0/#inbox/"+m.id,"_blank")} title="Ouvrir dans Gmail" style={{background:"none",border:"none",cursor:"pointer",fontSize:13,padding:2}}>📨</button>
+            <button onClick={()=>{setAssocId(assocId===m.id?null:m.id);setAssocSearch("")}} title="Associer à une entité" style={{background:assocId===m.id?"#EFF6FF":"none",border:assocId===m.id?"1px solid #BFDBFE":"none",borderRadius:4,cursor:"pointer",fontSize:13,padding:2}}>🔗</button>
+            <button onClick={()=>handleTrash(m.id)} title="Supprimer" style={{background:"none",border:"none",cursor:"pointer",fontSize:13,padding:2}}>🗑️</button>
+          </div>
+        </div>
+        {/* Association form */}
+        {assocId===m.id&&<div style={{background:"#F8FAFC",border:"1px solid #E2E8F0",borderRadius:8,padding:10,marginTop:4,marginBottom:4}}>
+          <div style={{fontSize:11,fontWeight:700,color:"#475569",marginBottom:6}}>🔗 Associer cet email à :</div>
+          <div style={{display:"flex",gap:3,marginBottom:8,flexWrap:"wrap"}}>
+            {assocBases.map((b,i)=><button key={b.idx} onClick={()=>{setAssocType(b.idx);setAssocSearch("")}} style={{padding:"3px 10px",borderRadius:6,border:"1.5px solid "+(assocType===b.idx?"#2563EB":"#E2E8F0"),background:assocType===b.idx?"#EFF6FF":"#fff",color:assocType===b.idx?"#2563EB":"#64748B",fontSize:11,fontWeight:assocType===b.idx?700:500,cursor:"pointer",fontFamily:font}}>{b.label}</button>)}
+          </div>
+          <input value={assocSearch} onChange={e=>setAssocSearch(e.target.value)} placeholder={"🔍 Rechercher dans "+(dbs[assocType]?.name||"")+"..."} style={{width:"100%",padding:"6px 10px",border:"1.5px solid #E2E8F0",borderRadius:6,fontSize:12,fontFamily:font,marginBottom:6,outline:"none",boxSizing:"border-box"}}/>
+          <div style={{maxHeight:150,overflowY:"auto",display:"grid",gap:2}}>
+            {(dbs[assocType]?.data||[]).filter(r=>{const t=r[dbs[assocType]?.titleProp]||"";return !assocSearch||t.toLowerCase().includes(assocSearch.toLowerCase())}).slice(0,15).map(r=>{
+              const t=r[dbs[assocType]?.titleProp]||"Sans titre";
+              return <button key={r.url} disabled={assocBusy} onClick={()=>handleAssociate(m,r)} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",background:"#fff",border:"1px solid #E8E8E4",borderRadius:6,cursor:"pointer",fontFamily:font,fontSize:12,textAlign:"left",transition:"background .1s"}} onMouseOver={e=>e.currentTarget.style.background="#F0F9FF"} onMouseOut={e=>e.currentTarget.style.background="#fff"}>
+                <span>{assocBases.find(b=>b.idx===assocType)?.icon||"📄"}</span>
+                <span style={{fontWeight:600,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t}</span>
+                {assocBusy&&<span style={{fontSize:10,color:"#999"}}>⏳</span>}
+              </button>})}
+            {(dbs[assocType]?.data||[]).filter(r=>{const t=r[dbs[assocType]?.titleProp]||"";return !assocSearch||t.toLowerCase().includes(assocSearch.toLowerCase())}).length===0&&<div style={{fontSize:11,color:"#999",padding:8,textAlign:"center"}}>Aucun résultat</div>}
+          </div>
+          <button onClick={()=>{setAssocId(null);setAssocSearch("")}} style={{marginTop:6,padding:"4px 12px",border:"1px solid #E2E8F0",borderRadius:6,background:"#fff",fontSize:11,cursor:"pointer",fontFamily:font,color:"#64748B"}}>Annuler</button>
+        </div>}
+      </div>)}
     </div>
   </div>;
 }
@@ -224,18 +312,7 @@ function DashboardView({dbs,crmUser}){
       </div>
     </div>}
     {/* ══ EMAILS RÉCENTS ══ */}
-    {inboxEmails.length>0&&<div style={{marginBottom:20}}>
-      <h3 style={{margin:"0 0 10px",fontSize:14,fontWeight:800,color:"#D97706"}}>📧 Emails récents ({inboxEmails.length} non lus)</h3>
-      <div style={{display:"grid",gap:4}}>
-        {inboxEmails.slice(0,6).map((m,i)=><div key={i} onClick={()=>window.open("https://mail.google.com/mail/u/0/#inbox/"+m.id,"_blank")} style={{display:"flex",gap:10,padding:"8px 12px",background:"#fff",borderRadius:8,border:"1px solid #F0EFEC",cursor:"pointer"}} onMouseOver={e=>e.currentTarget.style.background="#FFFBEB"} onMouseOut={e=>e.currentTarget.style.background="#fff"}>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.subject||"(sans objet)"}</div>
-            <div style={{fontSize:11,color:"#888",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.from?.split("<")[0]?.trim()}</div>
-          </div>
-          <div style={{fontSize:10,color:"#BBB",whiteSpace:"nowrap",flexShrink:0}}>{m.date?.split(",")[0]||""}</div>
-        </div>)}
-      </div>
-    </div>}
+    {inboxEmails.length>0&&<InboxPanel emails={inboxEmails} setEmails={setInboxEmails} dbs={dbs}/>}
     {/* ══ URGENCES ══ */}
     {(livRetard.length>0||livUrgent.length>0||risquesCritiques.length>0||facAF.length>0)&&<div style={{background:"#FEF2F2",border:"1.5px solid #DC262618",borderRadius:14,padding:18,marginBottom:20}}>
       <h3 style={{margin:"0 0 12px",fontSize:15,fontWeight:800,color:"#DC2626"}}>🚨 Urgences & retards</h3>
