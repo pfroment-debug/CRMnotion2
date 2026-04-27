@@ -189,9 +189,13 @@ function DashboardView({dbs,crmUser}){
     </div>;
   }
 
-  // Google Calendar events
+  // Google Calendar events + Gmail inbox
   const[calEvents,setCalEvents]=useState([]);
-  useEffect(()=>{gCalList().then(setCalEvents).catch(()=>{})},[]);
+  const[inboxEmails,setInboxEmails]=useState([]);
+  useEffect(()=>{
+    gCalList().then(setCalEvents).catch(()=>{});
+    gmailSearch("is:unread newer_than:3d").then(setInboxEmails).catch(()=>{});
+  },[]);
 
   return <div>
     {crmUser&&<div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16,padding:"10px 16px",background:(USERS.find(u=>u.id===crmUser)?.color||"#999")+"10",borderRadius:10,border:"1.5px solid "+(USERS.find(u=>u.id===crmUser)?.color||"#999")+"30"}}>
@@ -217,6 +221,19 @@ function DashboardView({dbs,crmUser}){
             {ev.attendees?.length>0&&<span style={{fontSize:10,color:"#999"}}>👤 {ev.attendees.length}</span>}
             {ev.location&&<span style={{fontSize:10,color:"#999"}}>📍</span>}
           </div>})}
+      </div>
+    </div>}
+    {/* ══ EMAILS RÉCENTS ══ */}
+    {inboxEmails.length>0&&<div style={{marginBottom:20}}>
+      <h3 style={{margin:"0 0 10px",fontSize:14,fontWeight:800,color:"#D97706"}}>📧 Emails récents ({inboxEmails.length} non lus)</h3>
+      <div style={{display:"grid",gap:4}}>
+        {inboxEmails.slice(0,6).map((m,i)=><div key={i} onClick={()=>window.open("https://mail.google.com/mail/u/0/#inbox/"+m.id,"_blank")} style={{display:"flex",gap:10,padding:"8px 12px",background:"#fff",borderRadius:8,border:"1px solid #F0EFEC",cursor:"pointer"}} onMouseOver={e=>e.currentTarget.style.background="#FFFBEB"} onMouseOut={e=>e.currentTarget.style.background="#fff"}>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.subject||"(sans objet)"}</div>
+            <div style={{fontSize:11,color:"#888",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.from?.split("<")[0]?.trim()}</div>
+          </div>
+          <div style={{fontSize:10,color:"#BBB",whiteSpace:"nowrap",flexShrink:0}}>{m.date?.split(",")[0]||""}</div>
+        </div>)}
       </div>
     </div>}
     {/* ══ URGENCES ══ */}
@@ -949,6 +966,8 @@ function DynForm({db,allDbs,modal,onClose,busy,onSave}){
    ══════════════════════════════════════ */
 function DetailView({entry,db,allDbs,onClose,onOpenModal,onDeleteEntry}){
   const[detailCollapsed,setDetailCollapsed]=useState({});
+  const[savedDriveLink,setSavedDriveLink]=useState(entry["userDefined:Lien Drive"]||"");
+  const[emailPanel,setEmailPanel]=useState(null); // null=closed, array=emails
   const title=entry[db.titleProp]||"Sans titre";const relFields=Object.entries(db.schema).filter(([,d])=>d.type==="relation");
   const infoFields=Object.entries(db.schema).filter(([,d])=>d.type!=="title"&&d.type!=="relation"&&!READONLY.has(d.type));const color=COLORS[allDbs.indexOf(db)%COLORS.length];const docsDb=allDbs.find(d=>d.name.includes("Documents"));
   return <div style={{background:"#fff",borderRadius:14,width:640,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 12px 36px rgba(0,0,0,.12)"}}>
@@ -963,10 +982,12 @@ function DetailView({entry,db,allDbs,onClose,onOpenModal,onDeleteEntry}){
     {/* Google integration bar */}
     <div style={{display:"flex",gap:6,padding:"8px 22px",borderBottom:"1px solid "+T.bdr,background:"#FAFAF8"}}>
       <button onClick={async()=>{
-        // Smart search: use email for contacts, name for others
         const email=entry["Email Address"]||entry["email"]||"";
         const q=email||title;
-        const msgs=await gmailSearch(q);if(msgs.length===0){alert("Aucun email trouvé pour \""+q+"\"")}else{const list=msgs.slice(0,5).map(m=>"• "+m.subject+" ("+m.from.split("<")[0].trim()+")").join("\n");alert("📧 "+msgs.length+" email(s) trouvé(s):\n\n"+list)}}} style={{display:"flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,border:"1px solid #E5E5E0",background:"#fff",fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:font,color:"#555"}}>📧 Emails</button>
+        setEmailPanel("loading");
+        const msgs=await gmailSearch(q);
+        setEmailPanel(msgs.length>0?msgs:[]);
+      }} style={{display:"flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,border:"1px solid #E5E5E0",background:emailPanel?"#EFF6FF":"#fff",fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:font,color:emailPanel?"#2563EB":"#555"}}>📧 Emails{Array.isArray(emailPanel)?" ("+emailPanel.length+")":""}</button>
       <button onClick={()=>{
         const email=entry["Email Address"]||entry["email"]||"";
         const subject=encodeURIComponent(title);
@@ -975,8 +996,7 @@ function DetailView({entry,db,allDbs,onClose,onOpenModal,onDeleteEntry}){
       }} style={{display:"flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,border:"1px solid #E5E5E0",background:"#fff",fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:font,color:"#555"}}>✉️ Écrire</button>
       <button onClick={async()=>{
         // Check if a Drive link is already saved
-        const savedLink=entry["userDefined:Lien Drive"]||"";
-        if(savedLink){window.open(savedLink,"_blank");return}
+        if(savedDriveLink){window.open(savedDriveLink,"_blank");return}
         // Otherwise search Drive
         const q=title;const files=await gDriveSearch(q);
         if(files.length===0){
@@ -985,7 +1005,7 @@ function DetailView({entry,db,allDbs,onClose,onOpenModal,onDeleteEntry}){
             try{
               const pid=entry.url.replace("notion://","");
               await fetch("/api/notion?action=update",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({page_id:pid,properties:{"userDefined:Lien Drive":manual},schema:{"Lien Drive":{type:"url"}}})});
-              alert("✅ Lien Drive sauvegardé !");
+              setSavedDriveLink(manual);alert("✅ Lien Drive sauvegardé !");
             }catch(e){alert("Erreur: "+e.message)}
           }
         }else{
@@ -1000,12 +1020,28 @@ function DetailView({entry,db,allDbs,onClose,onOpenModal,onDeleteEntry}){
             try{
               const pid=entry.url.replace("notion://","");
               await fetch("/api/notion?action=update",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({page_id:pid,properties:{"userDefined:Lien Drive":link},schema:{"Lien Drive":{type:"url"}}})});
-              alert("✅ Lien Drive sauvegardé pour "+title+" !");
+              setSavedDriveLink(link);alert("✅ Lien Drive sauvegardé pour "+title+" !");
             }catch(e){alert("Erreur: "+e.message)}
           }
         }
-      }} style={{display:"flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,border:"1px solid #E5E5E0",background:"#fff",fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:font,color:"#555"}}>📁 Drive{entry["userDefined:Lien Drive"]?" ✓":""}</button>
+      }} style={{display:"flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,border:"1px solid #E5E5E0",background:"#fff",fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:font,color:"#555"}}>📁 Drive{savedDriveLink?" ✓":""}</button>
     </div>
+    {/* Email panel */}
+    {emailPanel&&<div style={{padding:"10px 22px",borderBottom:"1px solid "+T.bdr,background:"#FAFAF8",maxHeight:250,overflowY:"auto"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+        <span style={{fontSize:11,fontWeight:700,color:"#2563EB"}}>📧 Emails trouvés</span>
+        <button onClick={()=>setEmailPanel(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:11,color:"#999"}}>✕</button>
+      </div>
+      {emailPanel==="loading"&&<div style={{fontSize:12,color:"#999",padding:8}}>Recherche en cours...</div>}
+      {Array.isArray(emailPanel)&&emailPanel.length===0&&<div style={{fontSize:12,color:"#999",padding:8,fontStyle:"italic"}}>Aucun email trouvé</div>}
+      {Array.isArray(emailPanel)&&emailPanel.map((m,i)=><div key={i} onClick={()=>window.open("https://mail.google.com/mail/u/0/#inbox/"+m.id,"_blank")} style={{display:"flex",gap:8,padding:"8px 10px",background:"#fff",borderRadius:6,border:"1px solid #E8E8E4",marginBottom:4,cursor:"pointer",transition:"background .15s"}} onMouseOver={e=>e.currentTarget.style.background="#F0F0EC"} onMouseOut={e=>e.currentTarget.style.background="#fff"}>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.subject||"(sans objet)"}</div>
+          <div style={{fontSize:11,color:"#888",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.from?.split("<")[0]?.trim()} — {m.snippet?.slice(0,80)}</div>
+        </div>
+        <div style={{fontSize:10,color:"#BBB",whiteSpace:"nowrap",flexShrink:0}}>{m.date?.split(",")[0]||""}</div>
+      </div>)}
+    </div>}
     <div style={{padding:"18px 22px"}}>
       {relFields.map(([rn,rd])=>{const tDb=allDbs.find(d=>d.dsUrl===rd.dataSourceUrl);if(!tDb)return null;const items=resolveRel(entry[rn],tDb);const tInfo=Object.entries(tDb.schema).filter(([,d])=>d.type!=="title"&&d.type!=="relation"&&!READONLY.has(d.type));const icon=tDb.name.includes("Contact")?"👤":tDb.name.includes("Réunion")?"📅":tDb.name.includes("Livrable")?"📋":tDb.name.includes("Document")?"📄":tDb.name.includes("Facture")?"💶":tDb.name.includes("Jalon")?"🎯":tDb.name.includes("Projet")?"🚀":tDb.name.includes("Risque")?"⚠️":tDb.name.includes("Dossier")?"📁":"🔗";const rev=Object.entries(tDb.schema).find(([,d])=>d.type==="relation"&&d.dataSourceUrl===db.dsUrl)?.[0];
         return <div key={rn} style={{marginBottom:12}}><div onClick={()=>setDetailCollapsed(p=>({...p,[rn]:!p[rn]}))} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",background:"#F8F8F6",borderRadius:8,cursor:"pointer",userSelect:"none",marginBottom:detailCollapsed[rn]?0:8}}>
