@@ -49,7 +49,7 @@ async function gmailSearch(q){const r=await fetch("/api/google?service=gmail&act
 async function gDriveSearch(q){const r=await fetch("/api/google?service=drive&action=search",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({q})});if(!r.ok)return[];const d=await r.json();return d.files||[]}
 
 async function gmailTrash(id){const r=await fetch("/api/google?service=gmail&action=trash",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messageId:id})});if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error||"Échec suppression (status "+r.status+"). Déconnectez-vous et reconnectez-vous.")}return r.json()}
-async function gmailMarkRead(id){const r=await fetch("/api/google?service=gmail&action=read",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messageId:id})});return r.json()}
+async function gmailMarkRead(id){const r=await fetch("/api/google?service=gmail&action=read",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messageId:id})});if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error||"Échec marquage lu ("+r.status+")")}return r.json()}
 
 /* ══ HELPERS ══ */
 const EDITABLE=new Set(["title","text","rich_text","email","phone_number","url","number","select","multi_select","checkbox","date","place","status","person"]);
@@ -134,6 +134,7 @@ function InboxPanel({emails,setEmails,dbs}){
   const[assocSelections,setAssocSelections]=useState({});
   const[assocSearch,setAssocSearch]=useState({});
   const[assocBusy,setAssocBusy]=useState(false);
+  const[needsReauth,setNeedsReauth]=useState(false);
 
   // Available relation fields in Documents 2026
   const ASSOC_FIELDS=[
@@ -157,9 +158,14 @@ function InboxPanel({emails,setEmails,dbs}){
     if(!confirm("Supprimer cet email de Gmail ?"))return;
     try{
       const r=await gmailTrash(emailId);
-      if(r.ok||r.error===undefined)setEmails(prev=>prev.filter(e=>e.id!==emailId));
-      else alert("Erreur Gmail: "+(r.error||"Échec. Déconnectez-vous et reconnectez-vous pour autoriser la suppression."));
-    }catch(e){alert("Erreur: "+e.message+"\n\nDéconnectez-vous et reconnectez-vous pour autoriser la nouvelle permission Gmail.")}
+      setEmails(prev=>prev.filter(e=>e.id!==emailId));
+    }catch(e){
+      if(e.message?.includes("Scope")||e.message?.includes("403")||e.message?.includes("Insufficient")){
+        setNeedsReauth(true);
+      }else{
+        alert("Erreur: "+e.message);
+      }
+    }
   };
 
   const handleAssociate=async(emailMsg)=>{
@@ -168,30 +174,27 @@ function InboxPanel({emails,setEmails,dbs}){
     setAssocBusy(true);
     try{
       const docsDb=dbs.find(d=>d.name.includes("Document"));
-      if(!docsDb){alert("Base Documents introuvable");setAssocBusy(false);return}
-      // Check if Document already exists for this email
+      if(!docsDb){alert("Base Documents 2026 introuvable");setAssocBusy(false);return}
       const gmailUrl="https://mail.google.com/mail/u/0/#inbox/"+emailMsg.id;
       const existing=(docsDb.data||[]).find(doc=>doc.Type==="Email"&&(doc["userDefined:URL"]||"").includes(emailMsg.id));
-      // Parse email date
       let emailDate="";
       try{const d=new Date(emailMsg.date);if(!isNaN(d))emailDate=d.toISOString().slice(0,10)}catch{}
-      // Build properties
       const props={Nom:"📧 "+(emailMsg.subject||"Sans objet"),"userDefined:URL":gmailUrl,Type:"Email"};
       if(emailDate)props["date:Date réception:start"]=emailDate;
-      // Add all selected relations
       ASSOC_FIELDS.forEach(f=>{if(sels[f.key])props[f.key]=JSON.stringify([sels[f.key]])});
+
       if(existing){
-        // Update existing Document
         const pageId=existing.url.replace("notion://","");
-        await fetch("/api/notion?action=update",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({page_id:pageId,properties:props,schema:docsDb.schema})});
+        const r=await fetch("/api/notion?action=update",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({page_id:pageId,properties:props,schema:docsDb.schema})});
+        if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.message||"Erreur Notion update")}
       }else{
-        // Create new Document
         await createPage(docsDb.dsId,props,docsDb.schema);
       }
-      try{await gmailMarkRead(emailMsg.id)}catch{}
+      // Mark as read (best effort, don't block if scope is insufficient)
+      try{await gmailMarkRead(emailMsg.id)}catch(e){if(e.message?.includes("403"))setNeedsReauth(true)}
       setAssocId(null);setAssocSelections({});setAssocSearch({});
       alert("✅ Email "+(existing?"mis à jour":"associé")+" !");
-    }catch(e){alert("Erreur: "+e.message)}
+    }catch(e){alert("❌ Erreur d'association: "+e.message)}
     setAssocBusy(false);
   };
 
@@ -199,6 +202,10 @@ function InboxPanel({emails,setEmails,dbs}){
 
   return <div style={{marginBottom:20}}>
     <h3 style={{margin:"0 0 10px",fontSize:14,fontWeight:800,color:"#D97706"}}>📧 Boîte de réception ({emails.length})</h3>
+    {needsReauth&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:"#FEF3C7",borderRadius:8,marginBottom:8,border:"1px solid #FCD34D"}}>
+      <span style={{fontSize:12}}>⚠️ Gmail nécessite une reconnexion pour supprimer/associer les emails.</span>
+      <a href="/api/auth?action=logout" style={{fontSize:11,fontWeight:700,color:"#D97706",textDecoration:"underline",whiteSpace:"nowrap"}}>Se reconnecter</a>
+    </div>}
     <div style={{display:"grid",gap:4}}>
       {emails.slice(0,10).map((m)=>{
         const docsDb=dbs.find(d=>d.name.includes("Document"));
