@@ -116,6 +116,28 @@ export default async function handler(req, res) {
         }
         return res.json({ messages });
       }
+
+      // Trash email (POST only)
+      if (action === 'trash') {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'POST requis' });
+        const { messageId } = req.body || {};
+        if (!messageId) return res.status(400).json({ error: 'messageId requis' });
+        const r = await fetch(`${GMAIL}/users/me/messages/${messageId}/trash`, { method: 'POST', headers });
+        if (!r.ok) { const e = await r.json().catch(() => ({})); return res.status(r.status).json({ error: e.error?.message || 'Scope insuffisant. Déconnectez-vous puis reconnectez-vous.' }); }
+        return res.json({ ok: true });
+      }
+
+      // Mark as read (POST only)
+      if (action === 'read') {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'POST requis' });
+        const { messageId } = req.body || {};
+        if (!messageId) return res.status(400).json({ error: 'messageId requis' });
+        const r = await fetch(`${GMAIL}/users/me/messages/${messageId}/modify`, {
+          method: 'POST', headers, body: JSON.stringify({ removeLabelIds: ['UNREAD'] })
+        });
+        if (!r.ok) { const e = await r.json().catch(() => ({})); return res.status(r.status).json({ error: e.error?.message || 'Scope insuffisant. Déconnectez-vous puis reconnectez-vous.' }); }
+        return res.json({ ok: true });
+      }
     }
 
     // ══════════════════════════════
@@ -149,25 +171,6 @@ export default async function handler(req, res) {
         if (!r.ok) { const e = await r.json(); return res.status(r.status).json(e); }
         const data = await r.json();
         return res.json({ files: data.files || [] });
-      }
-      // Trash email
-      if (action === 'trash' && req.method === 'POST') {
-        const { messageId } = req.body;
-        if (!messageId) return res.status(400).json({ error: 'messageId requis' });
-        const r = await fetch(`${GMAIL}/users/me/messages/${messageId}/trash`, { method: 'POST', headers });
-        if (!r.ok) { const e = await r.json(); return res.status(r.status).json(e); }
-        return res.json({ ok: true });
-      }
-
-      // Mark as read
-      if (action === 'read' && req.method === 'POST') {
-        const { messageId } = req.body;
-        if (!messageId) return res.status(400).json({ error: 'messageId requis' });
-        const r = await fetch(`${GMAIL}/users/me/messages/${messageId}/modify`, {
-          method: 'POST', headers, body: JSON.stringify({ removeLabelIds: ['UNREAD'] })
-        });
-        if (!r.ok) { const e = await r.json(); return res.status(r.status).json(e); }
-        return res.json({ ok: true });
       }
     }
 
