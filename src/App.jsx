@@ -533,8 +533,29 @@ function ManagerView({dbs,tab,setTab,onModal,onDetail,onDelete}){
   const[page,setPage]=useState(0);
   const[viewMode,setViewMode]=useState("cards");
   const[activePreset,setActivePreset]=useState(null);
+  const[globalSoc,setGlobalSoc]=useState(null); // null=toutes, or société url
   const PER_PAGE=viewMode==="list"?50:25;
-  const db=dbs[tab];
+
+  // Get all sociétés for the global filter
+  const socDb=useMemo(()=>dbs.find(d=>d.name.includes("Société")),[dbs]);
+  const allSocietes=useMemo(()=>(socDb?.data||[]).sort((a,b)=>(a.Nom||"").localeCompare(b.Nom||"")),[socDb]);
+
+  // Apply global société filter to current db
+  const db=useMemo(()=>{
+    const raw=dbs[tab];
+    if(!raw||!globalSoc)return raw;
+    // If this IS the Société db, filter to just the selected one
+    if(raw.name.includes("Société"))return{...raw,data:(raw.data||[]).filter(r=>r.url===globalSoc)};
+    // If this db has a Société 2026 relation, filter by it
+    if(raw.schema["Société 2026"]?.type==="relation"){
+      return{...raw,data:(raw.data||[]).filter(r=>{try{return JSON.parse(r["Société 2026"]||"[]").includes(globalSoc)}catch{return false}})};
+    }
+    // Contacts: filter by société relation
+    if(raw.name.includes("Contact")){
+      return{...raw,data:(raw.data||[]).filter(r=>{try{return JSON.parse(r["Société 2026"]||"[]").includes(globalSoc)}catch{return false}})};
+    }
+    return raw;
+  },[dbs,tab,globalSoc]);
 
   // Build sortable/filterable fields for current db (memoized)
   const selectFields=useMemo(()=>db?Object.entries(db.schema).filter(([,d])=>d.type==="select"||d.type==="status"):[],[db]);
@@ -826,9 +847,25 @@ function ManagerView({dbs,tab,setTab,onModal,onDetail,onDelete}){
   })():null;
 
   return <div>
+    {/* Global société filter */}
+    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,padding:"8px 14px",background:globalSoc?"#EFF6FF":"#F8F8F6",borderRadius:10,border:globalSoc?"1.5px solid #BFDBFE":"1px solid #F0EFEC"}}>
+      <span style={{fontSize:12,fontWeight:700,color:globalSoc?"#2563EB":"#64748B",whiteSpace:"nowrap"}}>🏢 Société :</span>
+      <select value={globalSoc||""} onChange={e=>{setGlobalSoc(e.target.value||null);setPage(0);setCollapsed({})}} style={{flex:1,padding:"6px 10px",border:"1.5px solid "+(globalSoc?"#BFDBFE":"#E2E8F0"),borderRadius:7,fontSize:12,fontFamily:font,background:"#fff",outline:"none",cursor:"pointer",color:globalSoc?"#2563EB":"#555",fontWeight:globalSoc?600:400}}>
+        <option value="">Toutes les sociétés</option>
+        {allSocietes.map(s=><option key={s.url} value={s.url}>{s.Nom}{s.Statut?" — "+s.Statut:""}</option>)}
+      </select>
+      {globalSoc&&<button onClick={()=>{setGlobalSoc(null);setPage(0)}} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#999",padding:"0 4px"}}>✕</button>}
+    </div>
     {/* Tabs */}
     <div style={{display:"flex",gap:0,overflowX:"auto",marginBottom:12}}>
-      {dbs.map((d,i)=><button key={i} onClick={()=>{setTab(i);setSearch("");setFilters({});setQuickFilters({});setActivePreset(null);setSortBy(dbs[i]&&(dbs[i].name.includes("Dossier")||dbs[i].name.includes("Projet")||dbs[i].name.includes("Jalon")||dbs[i].name.includes("Contact"))?"societe":"nom");setPage(0);setCollapsed({})}} style={{padding:"7px 14px",border:"none",cursor:"pointer",background:"transparent",fontFamily:font,fontSize:12,fontWeight:tab===i?700:400,color:tab===i?COLORS[i%COLORS.length]:"#999",borderBottom:"2px solid "+(tab===i?COLORS[i%COLORS.length]:"transparent"),whiteSpace:"nowrap"}}>{d.name.replace(" 2026","").replace("Jalons annuels","Jalons")}<span style={{marginLeft:4,fontSize:10,fontWeight:600,padding:"1px 5px",borderRadius:6,background:tab===i?COLORS[i%COLORS.length]+"18":"#F0F0EC",color:tab===i?COLORS[i%COLORS.length]:"#999"}}>{d.data?.length||0}</span></button>)}
+      {dbs.map((d,i)=>{
+        // Count filtered items for this tab
+        let count=d.data?.length||0;
+        if(globalSoc){
+          if(d.name.includes("Société"))count=(d.data||[]).filter(r=>r.url===globalSoc).length;
+          else if(d.schema["Société 2026"]?.type==="relation"||d.name.includes("Contact"))count=(d.data||[]).filter(r=>{try{return JSON.parse(r["Société 2026"]||"[]").includes(globalSoc)}catch{return false}}).length;
+        }
+        return <button key={i} onClick={()=>{setTab(i);setSearch("");setFilters({});setQuickFilters({});setActivePreset(null);setSortBy(dbs[i]&&(dbs[i].name.includes("Dossier")||dbs[i].name.includes("Projet")||dbs[i].name.includes("Jalon")||dbs[i].name.includes("Contact"))?"societe":"nom");setPage(0);setCollapsed({})}} style={{padding:"7px 14px",border:"none",cursor:"pointer",background:"transparent",fontFamily:font,fontSize:12,fontWeight:tab===i?700:400,color:tab===i?COLORS[i%COLORS.length]:"#999",borderBottom:"2px solid "+(tab===i?COLORS[i%COLORS.length]:"transparent"),whiteSpace:"nowrap"}}>{d.name.replace(" 2026","").replace("Jalons annuels","Jalons")}<span style={{marginLeft:4,fontSize:10,fontWeight:600,padding:"1px 5px",borderRadius:6,background:tab===i?COLORS[i%COLORS.length]+"18":"#F0F0EC",color:tab===i?COLORS[i%COLORS.length]:"#999"}}>{count}</span></button>})}
     </div>
     {/* Segment tabs for Société */}
     {db?.name.includes("Société")&&<div style={{display:"flex",gap:0,marginBottom:10,background:"#F8F8F6",borderRadius:8,padding:2}}>
@@ -859,7 +896,7 @@ function ManagerView({dbs,tab,setTab,onModal,onDetail,onDelete}){
         <button onClick={()=>setViewMode("list")} style={{padding:"3px 8px",border:"none",borderRadius:5,cursor:"pointer",background:viewMode==="list"?"#fff":"transparent",fontSize:11,fontFamily:font,color:viewMode==="list"?T.txt:"#999",boxShadow:viewMode==="list"?"0 1px 2px #00000008":"none"}}>☰ Liste</button>
       </div>
       <span style={{fontSize:11,color:"#999"}}>{results.length} résultat{results.length>1?"s":""}{activePreset?" (filtré)":""}</span>
-      {db&&<Btn size="sm" onClick={()=>onModal({mode:"create",type:tab,data:{}})}>+ Nouveau</Btn>}
+      {db&&<Btn size="sm" onClick={()=>{const preData={};if(globalSoc&&db.schema["Société 2026"])preData["Société 2026"]=JSON.stringify([globalSoc]);onModal({mode:"create",type:tab,data:preData})}}>+ Nouveau</Btn>}
     </div>
     {/* Quick filter chips for select/status fields */}
     {selectFields.length>0&&<div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"flex-start"}}>
