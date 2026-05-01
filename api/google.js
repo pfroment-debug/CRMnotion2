@@ -160,7 +160,26 @@ export default async function handler(req, res) {
           type: f.mimeType,
           link: f.webViewLink,
           modified: f.modifiedTime,
-          icon: f.iconLink
+          icon: f.iconLink,
+          isFolder: f.mimeType === 'application/vnd.google-apps.folder'
+        }));
+        return res.json({ files });
+      }
+
+      // Browse folder contents
+      if (action === 'browse') {
+        const { folderId = 'root' } = req.method === 'POST' ? req.body : req.query;
+        const query = `'${folderId}' in parents and trashed = false`;
+        const r = await fetch(`${GDRIVE}/files?q=${encodeURIComponent(query)}&pageSize=50&fields=files(id,name,mimeType,webViewLink,modifiedTime)&orderBy=folder,name`, { headers });
+        if (!r.ok) { const e = await r.json(); return res.status(r.status).json(e); }
+        const data = await r.json();
+        const files = (data.files || []).map(f => ({
+          id: f.id,
+          name: f.name,
+          type: f.mimeType,
+          link: f.webViewLink,
+          modified: f.modifiedTime,
+          isFolder: f.mimeType === 'application/vnd.google-apps.folder'
         }));
         return res.json({ files });
       }
