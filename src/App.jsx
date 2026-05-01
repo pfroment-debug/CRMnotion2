@@ -47,7 +47,7 @@ async function gCalCreate(ev){const r=await fetch("/api/google?service=calendar&
 async function gCalList(){const r=await fetch("/api/google?service=calendar&action=list");if(!r.ok)return[];const d=await r.json();return d.events||[]}
 async function gmailSearch(q){const r=await fetch("/api/google?service=gmail&action=search",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({q})});if(!r.ok)return[];const d=await r.json();return d.messages||[]}
 async function gDriveSearch(q){const r=await fetch("/api/google?service=drive&action=search",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({q})});if(!r.ok)return[];const d=await r.json();return d.files||[]}
-async function gDriveBrowse(folderId){const r=await fetch("/api/google?service=drive&action=browse",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({folderId:folderId||"root"})});if(!r.ok)return[];const d=await r.json();return d.files||[]}
+async function gDriveBrowse(folderId){const r=await fetch("/api/google?service=drive&action=browse",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({folderId:folderId==="shared"?null:folderId})});if(!r.ok)return[];const d=await r.json();return d.files||[]}
 
 async function gmailTrash(id){const r=await fetch("/api/google?service=gmail&action=trash",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messageId:id})});if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error||"Échec suppression (status "+r.status+"). Déconnectez-vous et reconnectez-vous.")}return r.json()}
 async function gmailMarkRead(id){const r=await fetch("/api/google?service=gmail&action=read",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messageId:id})});if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error||"Échec marquage lu ("+r.status+")")}return r.json()}
@@ -1099,7 +1099,7 @@ function DynForm({db,allDbs,modal,onClose,busy,onSave}){
       <label style={{fontSize:11,fontWeight:600,color:"#999"}}>📁 {name.replace("userDefined:","")}</label>
       <div style={{display:"flex",gap:6}}>
         <input value={form[name]||""} onChange={e=>set(name,e.target.value)} placeholder="https://drive.google.com/..." style={{flex:1,padding:"8px 10px",background:T.bg,border:"1.5px solid "+T.bdr,borderRadius:T.rs,fontSize:13,fontFamily:font,outline:"none"}}/>
-        <button type="button" onClick={async()=>{if(formDrive){setFormDrive(null);return}setFormDrive({files:[],path:[{id:"root",name:"Mon Drive"}],loading:true,fieldName:name});const files=await gDriveBrowse("root");setFormDrive({files,path:[{id:"root",name:"Mon Drive"}],loading:false,fieldName:name})}} style={{padding:"6px 12px",borderRadius:T.rs,border:"1.5px solid "+(formDrive?.fieldName===name?"#2563EB":"#E2E8F0"),background:formDrive?.fieldName===name?"#EFF6FF":"#fff",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:font,color:formDrive?.fieldName===name?"#2563EB":"#555",whiteSpace:"nowrap"}}>📁 Parcourir</button>
+        <button type="button" onClick={async()=>{if(formDrive){setFormDrive(null);return}setFormDrive({files:[],path:[{id:"shared",name:"Point du Jour"}],loading:true,fieldName:name});const files=await gDriveBrowse(null);setFormDrive({files,path:[{id:"shared",name:"Point du Jour"}],loading:false,fieldName:name})}} style={{padding:"6px 12px",borderRadius:T.rs,border:"1.5px solid "+(formDrive?.fieldName===name?"#2563EB":"#E2E8F0"),background:formDrive?.fieldName===name?"#EFF6FF":"#fff",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:font,color:formDrive?.fieldName===name?"#2563EB":"#555",whiteSpace:"nowrap"}}>📁 Parcourir</button>
       </div>
       {formDrive?.fieldName===name&&<div style={{background:"#F8FAFC",border:"1px solid #E2E8F0",borderRadius:8,padding:10,marginTop:4}}>
         {/* Breadcrumb */}
@@ -1205,10 +1205,10 @@ function DetailView({entry,db,allDbs,onClose,onOpenModal,onDeleteEntry}){
       <button onClick={async()=>{
         if(savedDriveLink){window.open(savedDriveLink,"_blank");return}
         // Open Drive browser panel
-        setDrivePanel({files:[],path:[{id:"root",name:"Mon Drive"}],loading:true});
+        setDrivePanel({files:[],path:[{id:"shared",name:"Point du Jour"}],loading:true});
         setDriveSearch("");
-        const files=await gDriveBrowse("root");
-        setDrivePanel({files,path:[{id:"root",name:"Mon Drive"}],loading:false});
+        const files=await gDriveBrowse(null);
+        setDrivePanel({files,path:[{id:"shared",name:"Point du Jour"}],loading:false});
       }} style={{display:"flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,border:"1px solid #E5E5E0",background:savedDriveLink?"#F0FDF4":drivePanel?"#EFF6FF":"#fff",fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:font,color:savedDriveLink?"#16A34A":drivePanel?"#2563EB":"#555"}}>📁 Drive{savedDriveLink?" ✓":""}</button>
     </div>
     {/* Email panel */}
