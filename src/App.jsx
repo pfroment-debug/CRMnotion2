@@ -384,9 +384,9 @@ function DashboardView({dbs,allDbs,crmUser,onModal,onDetail,onDelete,setTab,setM
       <button onClick={syncGoogle} disabled={gSyncing} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 12px",borderRadius:7,border:"1px solid #E2E8F0",background:gSyncing?"#F8FAFC":"#fff",fontSize:11,fontWeight:600,cursor:gSyncing?"wait":"pointer",fontFamily:font,color:"#64748B"}}>{gSyncing?"⏳ Sync...":"🔄 Sync Google"}</button>
     </div>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(140px, 1fr))",gap:10,marginBottom:22}}>
-      <KPI label="Clients" value={clients.length} icon="🏢" color="#2563EB" sub={clients2026?clients2026+" facturés en 2026":undefined}/>
-      <KPI label="Dossiers" value={dossiers.length} icon="📁" color="#8B5CF6" sub={dossiers2026?dossiers2026+" facturés en 2026":undefined}/>
-      <KPI label="CA total" value={fmt(caTotal)} icon="💶" color="#16A34A" sub={(ca2026?"2026: "+fmt(ca2026):"")+(caPaye?" · "+fmt(caPaye)+" encaissé":"")}/>
+      <KPI label="Clients 2026" value={clients2026} icon="🏢" color="#2563EB" sub={clients.length+" au total"}/>
+      <KPI label="Dossiers 2026" value={dossiers2026} icon="📁" color="#8B5CF6" sub={dossiers.length+" au total"}/>
+      <KPI label="CA 2026" value={fmt(ca2026)} icon="💶" color="#16A34A" sub={caPaye2026?fmt(caPaye2026)+" encaissé":"total: "+fmt(caTotal)}/>
       <KPI label="À traiter" value={aTraiter.length} color={livRetard.length?"#DC2626":aTraiter.length?"#D97706":"#16A34A"} icon="⚡" sub={livRetard.length?livRetard.length+" en retard":undefined}/>
       <KPI label="Risques" value={risquesActifs.length} color={risquesCritiques.length?"#DC2626":risquesActifs.length?"#D97706":"#16A34A"} sub={risquesCritiques.length?risquesCritiques.length+" critique(s)":undefined} icon="🚨"/>
     </div>
