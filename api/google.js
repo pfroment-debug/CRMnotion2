@@ -141,17 +141,18 @@ export default async function handler(req, res) {
     }
 
     // ══════════════════════════════
-    // GOOGLE DRIVE
+    // GOOGLE DRIVE (shared drive: Point du Jour)
     // ══════════════════════════════
+    const SHARED_DRIVE_ID = '0ANIvf7_ODfqLUk9PVA';
     if (service === 'drive') {
 
-      // Search files
+      // Search files (in shared drive)
       if (action === 'search') {
         const { q, maxResults = 10 } = req.method === 'POST' ? req.body : req.query;
         if (!q) return res.status(400).json({ error: 'Paramètre q requis' });
 
         const query = `name contains '${q.replace(/'/g, "\\'")}'`;
-        const r = await fetch(`${GDRIVE}/files?q=${encodeURIComponent(query)}&pageSize=${maxResults}&fields=files(id,name,mimeType,webViewLink,modifiedTime,iconLink)&orderBy=modifiedTime desc`, { headers });
+        const r = await fetch(`${GDRIVE}/files?q=${encodeURIComponent(query)}&pageSize=${maxResults}&fields=files(id,name,mimeType,webViewLink,modifiedTime,iconLink)&orderBy=modifiedTime desc&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=drive&driveId=${SHARED_DRIVE_ID}`, { headers });
         if (!r.ok) { const e = await r.json(); return res.status(r.status).json(e); }
         const data = await r.json();
         const files = (data.files || []).map(f => ({
@@ -166,11 +167,12 @@ export default async function handler(req, res) {
         return res.json({ files });
       }
 
-      // Browse folder contents
+      // Browse folder contents (shared drive)
       if (action === 'browse') {
-        const { folderId = 'root' } = req.method === 'POST' ? req.body : req.query;
-        const query = `'${folderId}' in parents and trashed = false`;
-        const r = await fetch(`${GDRIVE}/files?q=${encodeURIComponent(query)}&pageSize=50&fields=files(id,name,mimeType,webViewLink,modifiedTime)&orderBy=folder,name`, { headers });
+        const { folderId } = req.method === 'POST' ? req.body : req.query;
+        const parentId = folderId || SHARED_DRIVE_ID;
+        const query = `'${parentId}' in parents and trashed = false`;
+        const r = await fetch(`${GDRIVE}/files?q=${encodeURIComponent(query)}&pageSize=50&fields=files(id,name,mimeType,webViewLink,modifiedTime)&orderBy=folder,name&supportsAllDrives=true&includeItemsFromAllDrives=true`, { headers });
         if (!r.ok) { const e = await r.json(); return res.status(r.status).json(e); }
         const data = await r.json();
         const files = (data.files || []).map(f => ({
@@ -186,7 +188,7 @@ export default async function handler(req, res) {
 
       // List recent files
       if (action === 'recent') {
-        const r = await fetch(`${GDRIVE}/files?pageSize=15&fields=files(id,name,mimeType,webViewLink,modifiedTime)&orderBy=viewedByMeTime desc`, { headers });
+        const r = await fetch(`${GDRIVE}/files?pageSize=15&fields=files(id,name,mimeType,webViewLink,modifiedTime)&orderBy=viewedByMeTime desc&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=drive&driveId=${SHARED_DRIVE_ID}`, { headers });
         if (!r.ok) { const e = await r.json(); return res.status(r.status).json(e); }
         const data = await r.json();
         return res.json({ files: data.files || [] });
