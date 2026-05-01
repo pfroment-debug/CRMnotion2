@@ -275,7 +275,7 @@ function InboxPanel({emails,setEmails,dbs}){
 /* ══════════════════════════════════════
    DASHBOARD VIEW
    ══════════════════════════════════════ */
-function DashboardView({dbs,crmUser}){
+function DashboardView({dbs,allDbs,crmUser,onModal,onDetail,onDelete,setTab,setMode}){
   const[calMonth,setCalMonth]=useState(new Date().getMonth());
   const[calYear,setCalYear]=useState(new Date().getFullYear());
   const[expandedSoc,setExpandedSoc]=useState(null);
@@ -305,12 +305,18 @@ function DashboardView({dbs,crmUser}){
   const socUrl=(row)=>{try{return JSON.parse(row["Société 2026"]||"[]")[0]||""}catch{return""}};
   const socById={};societes.forEach(s=>{socById[s.url]=s});
 
+  // Helpers to open/edit items from dashboard
+  const findDb=(row)=>dbs.find(d=>(d.data||[]).some(r=>r.url===row.url));
+  const openItem=(row)=>{const db=findDb(row);if(db)onDetail({entry:row,db})};
+  const editItem=(row)=>{const db=findDb(row);if(db){const idx=dbs.indexOf(db);onModal({mode:"edit",type:idx,data:{...row}})}};
+  const goToTab=(dbName)=>{const idx=dbs.findIndex(d=>d.name.includes(dbName));if(idx>=0){setTab(idx);setMode("manager")}};
+
   // Items à traiter (merged urgences + cette semaine)
   const aTraiter=[
-    ...risquesCritiques.map(r=>({type:"risque",icon:"🔴",title:(r["Type d'alerte"]||"Risque")+" — "+r.Nom,soc:socById[socUrl(r)]?.Nom||"",detail:r["Montant exposé (€)"]?fmt(r["Montant exposé (€)"]):"",badge:r.Statut,badgeColor:EC[r.Statut],urgency:100})),
-    ...livRetard.map(l=>({type:"retard",icon:"⏰",title:l.Nom,soc:socById[socUrl(l)]?.Nom||"",detail:Math.abs(daysUntil(l["date:Deadline:start"]))+"j retard",detailColor:"#DC2626",badge:l.Etat,badgeColor:EC[l.Etat],urgency:50+Math.abs(daysUntil(l["date:Deadline:start"]))})),
-    ...livUrgent.map(l=>({type:"urgent",icon:"⚡",title:l.Nom,soc:socById[socUrl(l)]?.Nom||"",detail:daysUntil(l["date:Deadline:start"])===0?"Aujourd'hui":daysUntil(l["date:Deadline:start"])+"j",detailColor:"#D97706",badge:l.Etat,badgeColor:EC[l.Etat],urgency:30})),
-    ...facAF.map(f=>({type:"facture",icon:"💶",title:f.Nom,soc:socById[socUrl(f)]?.Nom||"",detail:f.Montant?fmt(f.Montant):"—",urgency:20})),
+    ...risquesCritiques.map(r=>({type:"risque",icon:"🔴",title:(r["Type d'alerte"]||"Risque")+" — "+r.Nom,soc:socById[socUrl(r)]?.Nom||"",detail:r["Montant exposé (€)"]?fmt(r["Montant exposé (€)"]):"",badge:r.Statut,badgeColor:EC[r.Statut],urgency:100,row:r})),
+    ...livRetard.map(l=>({type:"retard",icon:"⏰",title:l.Nom,soc:socById[socUrl(l)]?.Nom||"",detail:Math.abs(daysUntil(l["date:Deadline:start"]))+"j retard",detailColor:"#DC2626",badge:l.Etat,badgeColor:EC[l.Etat],urgency:50+Math.abs(daysUntil(l["date:Deadline:start"])),row:l})),
+    ...livUrgent.map(l=>({type:"urgent",icon:"⚡",title:l.Nom,soc:socById[socUrl(l)]?.Nom||"",detail:daysUntil(l["date:Deadline:start"])===0?"Aujourd'hui":daysUntil(l["date:Deadline:start"])+"j",detailColor:"#D97706",badge:l.Etat,badgeColor:EC[l.Etat],urgency:30,row:l})),
+    ...facAF.map(f=>({type:"facture",icon:"💶",title:f.Nom,soc:socById[socUrl(f)]?.Nom||"",detail:f.Montant?fmt(f.Montant):"—",urgency:20,row:f})),
   ].sort((a,b)=>b.urgency-a.urgency);
 
   // Today's items for "Aujourd'hui" panel
@@ -387,13 +393,14 @@ function DashboardView({dbs,crmUser}){
           const reunTodayUniq=reunToday.filter(r=>!gcTitles.some(gt=>gt.includes((r.Nom||"").toLowerCase().slice(0,15))||(r.Nom||"").toLowerCase().includes(gt.slice(0,15))));
           const todayItems=[
             ...gcToday.map(ev=>({key:"gc-"+ev.id,time:ev.start?.includes("T")?ev.start.slice(11,16):"",title:ev.title,type:"gcal",color:"#2563EB",bg:"#EFF6FF",tag:ev.attendees?.length?"👤"+ev.attendees.length:"",onClick:()=>ev.link&&window.open(ev.link,"_blank")})),
-            ...reunTodayUniq.map(r=>({key:r.url,time:r["date:Date:start"]?.includes("T")?r["date:Date:start"].slice(11,16):"",title:r.Nom,type:"reunion",color:"#7C3AED",bg:"#F5F3FF",tag:r.Type,tagColor:r.Type==="Client"?"#2563EB":"#7C3AED"})),
-            ...livToday.map(l=>({key:l.url,time:"",title:l.Nom,type:"livrable",color:"#D97706",bg:"#FFFBEB",tag:l.Etat,tagColor:EC[l.Etat]}))
+            ...reunTodayUniq.map(r=>({key:r.url,time:r["date:Date:start"]?.includes("T")?r["date:Date:start"].slice(11,16):"",title:r.Nom,type:"reunion",color:"#7C3AED",bg:"#F5F3FF",tag:r.Type,tagColor:r.Type==="Client"?"#2563EB":"#7C3AED",row:r})),
+            ...livToday.map(l=>({key:l.url,time:"",title:l.Nom,type:"livrable",color:"#D97706",bg:"#FFFBEB",tag:l.Etat,tagColor:EC[l.Etat],row:l}))
           ].sort((a,b)=>(a.time||"99:99").localeCompare(b.time||"99:99"));
-          return todayItems.length>0?todayItems.map(item=><div key={item.key} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:item.bg,borderRadius:6,marginBottom:4,cursor:item.onClick?"pointer":"default"}} onClick={item.onClick||undefined}>
+          return todayItems.length>0?todayItems.map(item=><div key={item.key} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:item.bg,borderRadius:6,marginBottom:4,cursor:"pointer"}} onClick={()=>item.row?openItem(item.row):item.onClick?item.onClick():null}>
             <span style={{fontSize:11,fontWeight:700,color:item.color,minWidth:35}}>{item.time||{gcal:"📅",reunion:"📅",livrable:"📋"}[item.type]}</span>
             <span style={{fontSize:12,fontWeight:600,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.title}</span>
             {item.tag&&(item.tagColor?<Tag color={item.tagColor}>{item.tag}</Tag>:<span style={{fontSize:10,color:"#999"}}>{item.tag}</span>)}
+            {item.row&&<button onClick={(e)=>{e.stopPropagation();editItem(item.row)}} style={{background:"none",border:"none",cursor:"pointer",fontSize:11,color:"#999",padding:2,flexShrink:0}} title="Modifier">✏️</button>}
           </div>):<div style={{textAlign:"center",padding:12,color:"#ccc",fontSize:12}}>Rien de prévu aujourd'hui</div>;
         })()}
 
@@ -404,16 +411,17 @@ function DashboardView({dbs,crmUser}){
           const reunWeekUniq=reunWeek.filter(r=>!calWeekTitles.some(gt=>gt.includes((r.Nom||"").toLowerCase().slice(0,15))||(r.Nom||"").toLowerCase().includes(gt.slice(0,15))));
           const weekItems=[
             ...calWeek.map(ev=>({key:"gc-"+ev.id,date:ev.start?.slice(5,10)||"",time:ev.start?.includes("T")?ev.start.slice(11,16):"",title:ev.title,type:"gcal",color:"#2563EB",onClick:()=>ev.link&&window.open(ev.link,"_blank")})),
-            ...reunWeekUniq.map(r=>({key:r.url,date:r["date:Date:start"]?.slice(5,10)||"",time:r["date:Date:start"]?.includes("T")?r["date:Date:start"].slice(11,16):"",title:r.Nom,type:"reunion",color:"#7C3AED",tag:r.Type,tagColor:r.Type==="Client"?"#2563EB":"#7C3AED"}))
+            ...reunWeekUniq.map(r=>({key:r.url,date:r["date:Date:start"]?.slice(5,10)||"",time:r["date:Date:start"]?.includes("T")?r["date:Date:start"].slice(11,16):"",title:r.Nom,type:"reunion",color:"#7C3AED",tag:r.Type,tagColor:r.Type==="Client"?"#2563EB":"#7C3AED",row:r}))
           ].sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
           if(weekItems.length===0)return null;
           return <>
             <h3 style={{margin:"16px 0 8px",fontSize:13,fontWeight:700,color:"#7C3AED"}}>📅 Cette semaine ({weekItems.length})</h3>
-            {weekItems.slice(0,8).map(item=><div key={item.key} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 10px",borderRadius:6,marginBottom:3,border:"1px solid #F0EFEC",cursor:item.onClick?"pointer":"default"}} onClick={item.onClick||undefined}>
+            {weekItems.slice(0,8).map(item=><div key={item.key} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 10px",borderRadius:6,marginBottom:3,border:"1px solid #F0EFEC",cursor:"pointer"}} onClick={()=>item.row?openItem(item.row):item.onClick?item.onClick():null}>
               <span style={{fontSize:11,fontWeight:600,color:"#999",minWidth:38}}>{item.date}</span>
               <span style={{fontSize:11,fontWeight:600,color:item.color,minWidth:35}}>{item.time||"—"}</span>
               <span style={{fontSize:12,fontWeight:500,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.title}</span>
               {item.tag&&<Tag color={item.tagColor||item.color}>{item.tag}</Tag>}
+              {item.row&&<button onClick={(e)=>{e.stopPropagation();editItem(item.row)}} style={{background:"none",border:"none",cursor:"pointer",fontSize:11,color:"#999",padding:2,flexShrink:0}} title="Modifier">✏️</button>}
             </div>)}
           </>;
         })()}
@@ -423,13 +431,14 @@ function DashboardView({dbs,crmUser}){
     {/* ══ À TRAITER (urgences + retards + factures — unifié) ══ */}
     {aTraiter.length>0&&<div style={{background:"#FEF2F2",border:"1.5px solid #DC262618",borderRadius:14,padding:18,marginBottom:20}}>
       <h3 style={{margin:"0 0 12px",fontSize:15,fontWeight:800,color:"#DC2626"}}>🔴 À traiter ({aTraiter.length})</h3>
-      {aTraiter.slice(0,12).map((item,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",background:item.type==="retard"||item.type==="risque"?"#fff":"#FFFBEB",borderRadius:8,border:"1px solid "+(item.type==="retard"||item.type==="risque"?"#DC262618":"#D9770618"),marginBottom:4}}>
+      {aTraiter.slice(0,12).map((item,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",background:item.type==="retard"||item.type==="risque"?"#fff":"#FFFBEB",borderRadius:8,border:"1px solid "+(item.type==="retard"||item.type==="risque"?"#DC262618":"#D9770618"),marginBottom:4,cursor:"pointer"}} onClick={()=>item.row&&openItem(item.row)}>
         <span style={{fontSize:15}}>{item.icon}</span>
         <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.title}</div>
           {item.soc&&<div style={{fontSize:11,color:"#888"}}>{item.soc}</div>}
         </div>
         {item.detail&&<span style={{fontSize:12,fontWeight:700,color:item.detailColor||"#111",flexShrink:0}}>{item.detail}</span>}
         {item.badge&&<Tag color={item.badgeColor||"#999"}>{item.badge}</Tag>}
+        <button onClick={(e)=>{e.stopPropagation();item.row&&editItem(item.row)}} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#999",padding:2,flexShrink:0}} title="Modifier">✏️</button>
       </div>)}
     </div>}
 
@@ -508,13 +517,13 @@ function DashboardView({dbs,crmUser}){
           </div>
           {isOpen&&<div style={{padding:"0 14px 12px",borderTop:"1px solid #F0EFEC"}}>
             {sReuAVenir.length>0&&<div style={{marginTop:10}}><div style={{fontSize:10,fontWeight:600,color:"#7C3AED",textTransform:"uppercase",marginBottom:4}}>Prochaines réunions</div>
-              {sReuAVenir.slice(0,3).map(r=><div key={r.url} style={{fontSize:12,padding:"3px 0",display:"flex",justifyContent:"space-between"}}><span>{r.Nom}</span><span style={{color:"#999",fontSize:11}}>{r["date:Date:start"]?.slice(5)}</span></div>)}
+              {sReuAVenir.slice(0,3).map(r=><div key={r.url} style={{fontSize:12,padding:"3px 4px",display:"flex",justifyContent:"space-between",cursor:"pointer",borderRadius:4}} onClick={()=>openItem(r)} onMouseOver={e=>e.currentTarget.style.background="#F5F3FF"} onMouseOut={e=>e.currentTarget.style.background="transparent"}><span>{r.Nom}</span><div style={{display:"flex",gap:6,alignItems:"center"}}><span style={{color:"#999",fontSize:11}}>{r["date:Date:start"]?.slice(5)}</span><button onClick={(e)=>{e.stopPropagation();editItem(r)}} style={{background:"none",border:"none",cursor:"pointer",fontSize:10,color:"#999"}}>✏️</button></div></div>)}
             </div>}
             {sRetard.length>0&&<div style={{marginTop:10}}><div style={{fontSize:10,fontWeight:600,color:"#DC2626",textTransform:"uppercase",marginBottom:4}}>En retard</div>
-              {sRetard.map(l=><div key={l.url} style={{fontSize:12,padding:"3px 0",display:"flex",justifyContent:"space-between"}}><span>{l.Nom}</span><span style={{color:"#DC2626",fontWeight:600,fontSize:11}}>{Math.abs(daysUntil(l["date:Deadline:start"]))}j</span></div>)}
+              {sRetard.map(l=><div key={l.url} style={{fontSize:12,padding:"3px 4px",display:"flex",justifyContent:"space-between",cursor:"pointer",borderRadius:4}} onClick={()=>openItem(l)} onMouseOver={e=>e.currentTarget.style.background="#FEF2F2"} onMouseOut={e=>e.currentTarget.style.background="transparent"}><span>{l.Nom}</span><div style={{display:"flex",gap:6,alignItems:"center"}}><span style={{color:"#DC2626",fontWeight:600,fontSize:11}}>{Math.abs(daysUntil(l["date:Deadline:start"]))}j</span><button onClick={(e)=>{e.stopPropagation();editItem(l)}} style={{background:"none",border:"none",cursor:"pointer",fontSize:10,color:"#999"}}>✏️</button></div></div>)}
             </div>}
             {sAFact.length>0&&<div style={{marginTop:10}}><div style={{fontSize:10,fontWeight:600,color:"#D97706",textTransform:"uppercase",marginBottom:4}}>À facturer</div>
-              {sAFact.map(f=><div key={f.url} style={{fontSize:12,padding:"3px 0",display:"flex",justifyContent:"space-between"}}><span>{f.Nom}</span><span style={{fontWeight:600}}>{f.Montant?fmt(f.Montant):"—"}</span></div>)}
+              {sAFact.map(f=><div key={f.url} style={{fontSize:12,padding:"3px 4px",display:"flex",justifyContent:"space-between",cursor:"pointer",borderRadius:4}} onClick={()=>openItem(f)} onMouseOver={e=>e.currentTarget.style.background="#FFFBEB"} onMouseOut={e=>e.currentTarget.style.background="transparent"}><span>{f.Nom}</span><div style={{display:"flex",gap:6,alignItems:"center"}}><span style={{fontWeight:600}}>{f.Montant?fmt(f.Montant):"—"}</span><button onClick={(e)=>{e.stopPropagation();editItem(f)}} style={{background:"none",border:"none",cursor:"pointer",fontSize:10,color:"#999"}}>✏️</button></div></div>)}
             </div>}
           </div>}
         </div>})}
@@ -1340,7 +1349,7 @@ export default function App(){
       </div>
     </header>
     <main style={{padding:"20px 28px",maxWidth:1100,margin:"0 auto"}}>
-      {mode==="dashboard"?<DashboardView dbs={filteredDbs} crmUser={crmUser}/>:<ManagerView dbs={filteredDbs} tab={tab} setTab={setTab} onModal={setModal} onDetail={setDetail} onDelete={setConfirm}/>}
+      {mode==="dashboard"?<DashboardView dbs={filteredDbs} allDbs={dbs} crmUser={crmUser} onModal={setModal} onDetail={setDetail} onDelete={setConfirm} setTab={setTab} setMode={setMode}/>:<ManagerView dbs={filteredDbs} tab={tab} setTab={setTab} onModal={setModal} onDetail={setDetail} onDelete={setConfirm}/>}
     </main>
     {modal&&dbs[modal.type]&&<Overlay onClose={()=>!busy&&setModal(null)}><DynForm db={dbs[modal.type]} allDbs={dbs} modal={modal} onClose={()=>setModal(null)} busy={busy} onSave={handleSave}/></Overlay>}
     {detail&&<Overlay onClose={()=>setDetail(null)}><DetailView entry={detail.entry} db={detail.db} allDbs={dbs} onClose={()=>setDetail(null)} onOpenModal={setModal} onDeleteEntry={(url,name)=>{setDetail(null);setConfirm({url,name})}}/></Overlay>}
