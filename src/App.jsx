@@ -299,6 +299,19 @@ function DashboardView({dbs,allDbs,crmUser,onModal,onDetail,onDelete,setTab,setM
   const caPaye=factures.filter(f=>f["État"]==="Payée").reduce((s,f)=>s+(f.Montant||0),0);
   const fmt=(n)=>n>=10000?Math.round(n/1000).toLocaleString("fr-FR")+" K€":Number(n).toLocaleString("fr-FR")+" €";
 
+  // 2026 specific — based on Factures.Exercice (source of truth)
+  const fac2026=factures.filter(f=>f.Exercice==="2026");
+  const ca2026=fac2026.reduce((s,f)=>s+(f.Montant||0),0);
+  const caPaye2026=fac2026.filter(f=>f["État"]==="Payée").reduce((s,f)=>s+(f.Montant||0),0);
+  // Trace back: sociétés with at least one facture 2026
+  const socUrls2026=new Set();
+  fac2026.forEach(f=>{try{JSON.parse(f["Société 2026"]||"[]").forEach(u=>socUrls2026.add(u))}catch{}});
+  const clients2026=clients.filter(c=>socUrls2026.has(c.url)).length;
+  // Trace back: dossiers linked to factures 2026
+  const dosUrls2026=new Set();
+  fac2026.forEach(f=>{try{JSON.parse(f["Dossiers 2026"]||"[]").forEach(u=>dosUrls2026.add(u))}catch{}});
+  const dossiers2026=dosUrls2026.size;
+
   const livRetard=livrables.filter(l=>daysUntil(l["date:Deadline:start"])<0&&l.Etat!=="Terminé"&&l.Etat!=="Annulé").sort((a,b)=>daysUntil(a["date:Deadline:start"])-daysUntil(b["date:Deadline:start"]));
   const livUrgent=livrables.filter(l=>{const d=daysUntil(l["date:Deadline:start"]);return d>=0&&d<=3&&l.Etat!=="Terminé"&&l.Etat!=="Annulé"});
   const facAF=factures.filter(f=>f["État"]==="A facturer");
@@ -371,9 +384,9 @@ function DashboardView({dbs,allDbs,crmUser,onModal,onDetail,onDelete,setTab,setM
       <button onClick={syncGoogle} disabled={gSyncing} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 12px",borderRadius:7,border:"1px solid #E2E8F0",background:gSyncing?"#F8FAFC":"#fff",fontSize:11,fontWeight:600,cursor:gSyncing?"wait":"pointer",fontFamily:font,color:"#64748B"}}>{gSyncing?"⏳ Sync...":"🔄 Sync Google"}</button>
     </div>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(140px, 1fr))",gap:10,marginBottom:22}}>
-      <KPI label="Clients" value={clients.length} icon="🏢" color="#2563EB"/>
-      <KPI label="Dossiers" value={dossiers.length} icon="📁" color="#8B5CF6"/>
-      <KPI label="CA total" value={fmt(caTotal)} sub={caPaye?fmt(caPaye)+" encaissé":undefined} icon="💶" color="#16A34A"/>
+      <KPI label="Clients" value={clients.length} icon="🏢" color="#2563EB" sub={clients2026?clients2026+" facturés en 2026":undefined}/>
+      <KPI label="Dossiers" value={dossiers.length} icon="📁" color="#8B5CF6" sub={dossiers2026?dossiers2026+" facturés en 2026":undefined}/>
+      <KPI label="CA total" value={fmt(caTotal)} icon="💶" color="#16A34A" sub={(ca2026?"2026: "+fmt(ca2026):"")+(caPaye?" · "+fmt(caPaye)+" encaissé":"")}/>
       <KPI label="À traiter" value={aTraiter.length} color={livRetard.length?"#DC2626":aTraiter.length?"#D97706":"#16A34A"} icon="⚡" sub={livRetard.length?livRetard.length+" en retard":undefined}/>
       <KPI label="Risques" value={risquesActifs.length} color={risquesCritiques.length?"#DC2626":risquesActifs.length?"#D97706":"#16A34A"} sub={risquesCritiques.length?risquesCritiques.length+" critique(s)":undefined} icon="🚨"/>
     </div>
