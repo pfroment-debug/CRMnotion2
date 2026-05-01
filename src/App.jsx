@@ -994,6 +994,7 @@ function DynForm({db,allDbs,modal,onClose,busy,onSave}){
   const relFields=Object.entries(db.schema).filter(([,d])=>d.type==="relation");
   const selectFields=Object.entries(db.schema).filter(([,d])=>d.type==="select");
   const[form,setForm]=useState(()=>{const init={};editFields.forEach(([n,d])=>{if(d.type==="place")init["place:"+n]=modal.data?.["place:"+n+":address"]||"";else if(d.type==="date")init["date:"+n]=modal.data?.["date:"+n+":start"]||"";else if(d.type==="person"){try{init["person:"+n]=(JSON.parse(modal.data?.[n]||"[]")[0]||"").replace("user://","")}catch{init["person:"+n]=""}}else if(d.type==="checkbox")init[n]=modal.data?.[n]===true||modal.data?.[n]==="__YES__"?"__YES__":"";else init[n]=modal.data?.[n]||""});return init});
+  const[formDrive,setFormDrive]=useState(null); // Drive browser state for URL fields
   const[rels,setRels]=useState(()=>{const init={};relFields.forEach(([n])=>{const pre=modal.preRel?.[n];if(pre){init[n]=[pre];return}try{init[n]=JSON.parse(modal.data?.[n]||"[]")}catch{init[n]=[]}});return init});
   const[newRels,setNewRels]=useState({});const[autoName,setAutoName]=useState(isCreate);
   const set=(k,v)=>{if(k===titlePropName)setAutoName(false);setForm(p=>({...p,[k]:v}))};
@@ -1092,6 +1093,41 @@ function DynForm({db,allDbs,modal,onClose,busy,onSave}){
         <input type="range" min="0" max="100" step="5" value={Math.round((form[name]||0)*100)} onChange={e=>set(name,parseInt(e.target.value)/100)} style={{flex:1,cursor:"pointer"}}/>
         <span style={{fontSize:14,fontWeight:700,color:Math.round((form[name]||0)*100)>=100?"#16A34A":Math.round((form[name]||0)*100)>=50?"#2563EB":"#D97706",minWidth:40,textAlign:"right"}}>{Math.round((form[name]||0)*100)}%</span>
       </div>
+    </div>;
+    // Special Drive browser for "Lien Drive" fields
+    if(def.type==="url"&&(name==="Lien Drive"||name==="userDefined:Lien Drive"))return <div key={name} style={{display:"flex",flexDirection:"column",gap:4}}>
+      <label style={{fontSize:11,fontWeight:600,color:"#999"}}>📁 {name.replace("userDefined:","")}</label>
+      <div style={{display:"flex",gap:6}}>
+        <input value={form[name]||""} onChange={e=>set(name,e.target.value)} placeholder="https://drive.google.com/..." style={{flex:1,padding:"8px 10px",background:T.bg,border:"1.5px solid "+T.bdr,borderRadius:T.rs,fontSize:13,fontFamily:font,outline:"none"}}/>
+        <button type="button" onClick={async()=>{if(formDrive){setFormDrive(null);return}setFormDrive({files:[],path:[{id:"root",name:"Mon Drive"}],loading:true,fieldName:name});const files=await gDriveBrowse("root");setFormDrive({files,path:[{id:"root",name:"Mon Drive"}],loading:false,fieldName:name})}} style={{padding:"6px 12px",borderRadius:T.rs,border:"1.5px solid "+(formDrive?.fieldName===name?"#2563EB":"#E2E8F0"),background:formDrive?.fieldName===name?"#EFF6FF":"#fff",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:font,color:formDrive?.fieldName===name?"#2563EB":"#555",whiteSpace:"nowrap"}}>📁 Parcourir</button>
+      </div>
+      {formDrive?.fieldName===name&&<div style={{background:"#F8FAFC",border:"1px solid #E2E8F0",borderRadius:8,padding:10,marginTop:4}}>
+        {/* Breadcrumb */}
+        <div style={{display:"flex",gap:4,alignItems:"center",marginBottom:6,flexWrap:"wrap"}}>
+          {(formDrive.path||[]).map((p,i)=><span key={i} style={{display:"flex",alignItems:"center",gap:2}}>
+            {i>0&&<span style={{color:"#ccc"}}>/</span>}
+            <button type="button" onClick={async()=>{const newPath=formDrive.path.slice(0,i+1);setFormDrive(prev=>({...prev,loading:true}));const files=await gDriveBrowse(p.id);setFormDrive({files,path:newPath,loading:false,fieldName:name})}} style={{background:"none",border:"none",cursor:"pointer",fontSize:11,fontWeight:i===formDrive.path.length-1?700:400,color:i===formDrive.path.length-1?"#111":"#2563EB",fontFamily:font,padding:0}}>{p.name}</button>
+          </span>)}
+        </div>
+        {/* Search */}
+        <div style={{display:"flex",gap:4,marginBottom:6}}>
+          <input placeholder="🔍 Rechercher..." onKeyDown={async(e)=>{if(e.key==="Enter"&&e.target.value.trim()){setFormDrive(prev=>({...prev,loading:true}));const files=await gDriveSearch(e.target.value);setFormDrive(prev=>({...prev,files,loading:false}))}}} style={{flex:1,padding:"4px 8px",border:"1px solid #E2E8F0",borderRadius:5,fontSize:11,fontFamily:font,outline:"none"}}/>
+        </div>
+        {/* Files */}
+        {formDrive.loading?<div style={{textAlign:"center",padding:8,color:"#999",fontSize:11}}>Chargement...</div>:
+        <div style={{maxHeight:150,overflowY:"auto",display:"grid",gap:2}}>
+          {(formDrive.files||[]).map(f=><div key={f.id} style={{display:"flex",alignItems:"center",gap:6,padding:"4px 8px",background:"#fff",borderRadius:4,border:"1px solid #F0EFEC",cursor:"pointer",fontSize:12}} onClick={async()=>{
+            if(f.isFolder){setFormDrive(prev=>({...prev,loading:true}));const files=await gDriveBrowse(f.id);setFormDrive(prev=>({files,path:[...(prev.path||[]),{id:f.id,name:f.name}],loading:false,fieldName:name}))}
+            else{set(name,f.link||"https://drive.google.com/file/d/"+f.id);setFormDrive(null)}
+          }} onMouseOver={e=>e.currentTarget.style.background="#F0F9FF"} onMouseOut={e=>e.currentTarget.style.background="#fff"}>
+            <span>{f.isFolder?"📁":"📄"}</span>
+            <span style={{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontWeight:f.isFolder?600:400}}>{f.name}</span>
+            {f.isFolder?<span style={{fontSize:10,color:"#999"}}>→</span>:
+            <button type="button" onClick={(e)=>{e.stopPropagation();set(name,f.link||"https://drive.google.com/file/d/"+f.id);setFormDrive(null)}} style={{padding:"1px 6px",borderRadius:3,border:"1px solid #16A34A40",background:"#F0FDF4",fontSize:10,color:"#16A34A",cursor:"pointer",fontFamily:font}}>✓</button>}
+          </div>)}
+          {(formDrive.files||[]).length===0&&<div style={{textAlign:"center",padding:8,color:"#999",fontSize:10}}>Vide</div>}
+        </div>}
+      </div>}
     </div>;
     return <Fld key={name} label={name} value={form[name]} onChange={v=>set(name,v)} type={inputType(def.type)} placeholder={def.type==="email"?"email@ex.fr":def.type==="number"?"0":""}/>;
   };
