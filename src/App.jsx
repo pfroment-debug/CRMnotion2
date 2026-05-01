@@ -1122,8 +1122,9 @@ function DynForm({db,allDbs,modal,onClose,busy,onSave}){
           }} onMouseOver={e=>e.currentTarget.style.background="#F0F9FF"} onMouseOut={e=>e.currentTarget.style.background="#fff"}>
             <span>{f.isFolder?"📁":"📄"}</span>
             <span style={{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontWeight:f.isFolder?600:400}}>{f.name}</span>
-            {f.isFolder?<span style={{fontSize:10,color:"#999"}}>→</span>:
-            <button type="button" onClick={(e)=>{e.stopPropagation();set(name,f.link||"https://drive.google.com/file/d/"+f.id);setFormDrive(null)}} style={{padding:"1px 6px",borderRadius:3,border:"1px solid #16A34A40",background:"#F0FDF4",fontSize:10,color:"#16A34A",cursor:"pointer",fontFamily:font}}>✓</button>}
+            {f.isFolder&&<button type="button" onClick={(e)=>{e.stopPropagation();set(name,f.link||"https://drive.google.com/drive/folders/"+f.id);setFormDrive(null)}} style={{padding:"1px 6px",borderRadius:3,border:"1px solid #16A34A40",background:"#F0FDF4",fontSize:10,color:"#16A34A",cursor:"pointer",fontFamily:font}}>Lier</button>}
+            {f.isFolder&&<span style={{fontSize:10,color:"#999"}}>→</span>}
+            {!f.isFolder&&<button type="button" onClick={(e)=>{e.stopPropagation();set(name,f.link||"https://drive.google.com/file/d/"+f.id);setFormDrive(null)}} style={{padding:"1px 6px",borderRadius:3,border:"1px solid #16A34A40",background:"#F0FDF4",fontSize:10,color:"#16A34A",cursor:"pointer",fontFamily:font}}>Lier</button>}
           </div>)}
           {(formDrive.files||[]).length===0&&<div style={{textAlign:"center",padding:8,color:"#999",fontSize:10}}>Vide</div>}
         </div>}
@@ -1253,13 +1254,11 @@ function DetailView({entry,db,allDbs,onClose,onOpenModal,onDeleteEntry}){
       <div style={{maxHeight:200,overflowY:"auto",display:"grid",gap:2}}>
         {(drivePanel.files||[]).map(f=><div key={f.id} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",background:"#fff",borderRadius:5,border:"1px solid #F0EFEC",cursor:"pointer"}} onClick={async()=>{
           if(f.isFolder){
-            // Navigate into folder
             setDrivePanel(prev=>({...prev,loading:true}));
             const files=await gDriveBrowse(f.id);
             setDrivePanel(prev=>({files,path:[...(prev.path||[]),{id:f.id,name:f.name}],loading:false}));
           }else{
-            // Select this file/folder as the Drive link
-            const link=f.link||("https://drive.google.com/drive/folders/"+f.id);
+            const link=f.link||("https://drive.google.com/file/d/"+f.id);
             try{
               const pid=entry.url.replace("notion://","");
               await fetch("/api/notion?action=update",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({page_id:pid,properties:{"userDefined:Lien Drive":link},schema:{"Lien Drive":{type:"url"}}})});
@@ -1269,9 +1268,14 @@ function DetailView({entry,db,allDbs,onClose,onOpenModal,onDeleteEntry}){
         }} onMouseOver={e=>e.currentTarget.style.background="#F0F9FF"} onMouseOut={e=>e.currentTarget.style.background="#fff"}>
           <span style={{fontSize:14}}>{f.isFolder?"📁":"📄"}</span>
           <span style={{fontSize:12,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontWeight:f.isFolder?600:400}}>{f.name}</span>
-          {f.isFolder?<span style={{fontSize:10,color:"#999"}}>→</span>:
-          <button onClick={(e)=>{e.stopPropagation();
+          {f.isFolder&&<button onClick={(e)=>{e.stopPropagation();
             const link=f.link||("https://drive.google.com/drive/folders/"+f.id);
+            const pid=entry.url.replace("notion://","");
+            fetch("/api/notion?action=update",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({page_id:pid,properties:{"userDefined:Lien Drive":link},schema:{"Lien Drive":{type:"url"}}})}).then(()=>{setSavedDriveLink(link);setDrivePanel(null)}).catch(err=>alert("Erreur: "+err.message));
+          }} style={{padding:"2px 8px",borderRadius:4,border:"1px solid #16A34A40",background:"#F0FDF4",fontSize:10,fontWeight:600,color:"#16A34A",cursor:"pointer",fontFamily:font}}>Lier</button>}
+          {f.isFolder&&<span style={{fontSize:10,color:"#999"}}>→</span>}
+          {!f.isFolder&&<button onClick={(e)=>{e.stopPropagation();
+            const link=f.link||("https://drive.google.com/file/d/"+f.id);
             const pid=entry.url.replace("notion://","");
             fetch("/api/notion?action=update",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({page_id:pid,properties:{"userDefined:Lien Drive":link},schema:{"Lien Drive":{type:"url"}}})}).then(()=>{setSavedDriveLink(link);setDrivePanel(null)}).catch(err=>alert("Erreur: "+err.message));
           }} style={{padding:"2px 8px",borderRadius:4,border:"1px solid #16A34A40",background:"#F0FDF4",fontSize:10,fontWeight:600,color:"#16A34A",cursor:"pointer",fontFamily:font}}>Lier</button>}
