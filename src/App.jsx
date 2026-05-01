@@ -47,6 +47,7 @@ async function gCalCreate(ev){const r=await fetch("/api/google?service=calendar&
 async function gCalList(){const r=await fetch("/api/google?service=calendar&action=list");if(!r.ok)return[];const d=await r.json();return d.events||[]}
 async function gmailSearch(q){const r=await fetch("/api/google?service=gmail&action=search",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({q})});if(!r.ok)return[];const d=await r.json();return d.messages||[]}
 async function gDriveSearch(q){const r=await fetch("/api/google?service=drive&action=search",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({q})});if(!r.ok)return[];const d=await r.json();return d.files||[]}
+async function gDriveBrowse(folderId){const r=await fetch("/api/google?service=drive&action=browse",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({folderId:folderId||"root"})});if(!r.ok)return[];const d=await r.json();return d.files||[]}
 
 async function gmailTrash(id){const r=await fetch("/api/google?service=gmail&action=trash",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messageId:id})});if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error||"Échec suppression (status "+r.status+"). Déconnectez-vous et reconnectez-vous.")}return r.json()}
 async function gmailMarkRead(id){const r=await fetch("/api/google?service=gmail&action=read",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messageId:id})});if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error||"Échec marquage lu ("+r.status+")")}return r.json()}
@@ -1119,7 +1120,9 @@ function DynForm({db,allDbs,modal,onClose,busy,onSave}){
 function DetailView({entry,db,allDbs,onClose,onOpenModal,onDeleteEntry}){
   const[detailCollapsed,setDetailCollapsed]=useState({});
   const[savedDriveLink,setSavedDriveLink]=useState(entry["userDefined:Lien Drive"]||"");
-  const[emailPanel,setEmailPanel]=useState(null); // null=closed, array=emails
+  const[emailPanel,setEmailPanel]=useState(null);
+  const[drivePanel,setDrivePanel]=useState(null); // null=closed, {files,path,search}=open
+  const[driveSearch,setDriveSearch]=useState(""); // null=closed, array=emails
   const title=entry[db.titleProp]||"Sans titre";const relFields=Object.entries(db.schema).filter(([,d])=>d.type==="relation");
   const infoFields=Object.entries(db.schema).filter(([,d])=>d.type!=="title"&&d.type!=="relation"&&!READONLY.has(d.type));const color=COLORS[allDbs.indexOf(db)%COLORS.length];const docsDb=allDbs.find(d=>d.name.includes("Documents"));
   return <div style={{background:"#fff",borderRadius:14,width:640,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 12px 36px rgba(0,0,0,.12)"}}>
@@ -1165,15 +1168,12 @@ function DetailView({entry,db,allDbs,onClose,onOpenModal,onDeleteEntry}){
       }} style={{display:"flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,border:"1px solid #E5E5E0",background:"#fff",fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:font,color:"#555"}}>✉️ Écrire</button>
       <button onClick={async()=>{
         if(savedDriveLink){window.open(savedDriveLink,"_blank");return}
-        const link=prompt("Collez le lien Google Drive pour \""+title+"\" :");
-        if(link&&link.startsWith("http")){
-          try{
-            const pid=entry.url.replace("notion://","");
-            await fetch("/api/notion?action=update",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({page_id:pid,properties:{"userDefined:Lien Drive":link},schema:{"Lien Drive":{type:"url"}}})});
-            setSavedDriveLink(link);alert("✅ Lien Drive sauvegardé !");
-          }catch(e){alert("Erreur: "+e.message)}
-        }
-      }} style={{display:"flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,border:"1px solid #E5E5E0",background:savedDriveLink?"#F0FDF4":"#fff",fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:font,color:savedDriveLink?"#16A34A":"#555"}}>📁 Drive{savedDriveLink?" ✓":""}</button>
+        // Open Drive browser panel
+        setDrivePanel({files:[],path:[{id:"root",name:"Mon Drive"}],loading:true});
+        setDriveSearch("");
+        const files=await gDriveBrowse("root");
+        setDrivePanel({files,path:[{id:"root",name:"Mon Drive"}],loading:false});
+      }} style={{display:"flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:6,border:"1px solid #E5E5E0",background:savedDriveLink?"#F0FDF4":drivePanel?"#EFF6FF":"#fff",fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:font,color:savedDriveLink?"#16A34A":drivePanel?"#2563EB":"#555"}}>📁 Drive{savedDriveLink?" ✓":""}</button>
     </div>
     {/* Email panel */}
     {emailPanel&&<div style={{padding:"10px 22px",borderBottom:"1px solid "+T.bdr,background:"#FAFAF8",maxHeight:250,overflowY:"auto"}}>
@@ -1190,6 +1190,63 @@ function DetailView({entry,db,allDbs,onClose,onOpenModal,onDeleteEntry}){
         </div>
         <div style={{fontSize:10,color:"#BBB",whiteSpace:"nowrap",flexShrink:0}}>{m.date?.split(",")[0]||""}</div>
       </div>)}
+    </div>}
+    {/* Drive browser panel */}
+    {drivePanel&&<div style={{padding:"10px 22px",borderBottom:"1px solid "+T.bdr,background:"#FAFAF8"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+        <span style={{fontSize:11,fontWeight:700,color:"#16A34A"}}>📁 Google Drive</span>
+        <div style={{display:"flex",gap:4}}>
+          {savedDriveLink&&<button onClick={()=>{setSavedDriveLink("");setDrivePanel(null);const pid=entry.url.replace("notion://","");fetch("/api/notion?action=update",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({page_id:pid,properties:{"userDefined:Lien Drive":""},schema:{"Lien Drive":{type:"url"}}})})}} style={{background:"none",border:"none",cursor:"pointer",fontSize:10,color:"#DC2626"}}>Dissocier</button>}
+          <button onClick={()=>setDrivePanel(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:11,color:"#999"}}>✕</button>
+        </div>
+      </div>
+      {/* Breadcrumb */}
+      <div style={{display:"flex",gap:4,alignItems:"center",marginBottom:8,flexWrap:"wrap"}}>
+        {(drivePanel.path||[]).map((p,i)=><span key={i} style={{display:"flex",alignItems:"center",gap:2}}>
+          {i>0&&<span style={{color:"#ccc"}}>/</span>}
+          <button onClick={async()=>{const newPath=drivePanel.path.slice(0,i+1);setDrivePanel(prev=>({...prev,loading:true}));const files=await gDriveBrowse(p.id);setDrivePanel({files,path:newPath,loading:false})}} style={{background:"none",border:"none",cursor:"pointer",fontSize:11,fontWeight:i===drivePanel.path.length-1?700:400,color:i===drivePanel.path.length-1?"#111":"#2563EB",fontFamily:font,padding:0}}>{p.name}</button>
+        </span>)}
+      </div>
+      {/* Search */}
+      <div style={{display:"flex",gap:6,marginBottom:8}}>
+        <input value={driveSearch} onChange={e=>setDriveSearch(e.target.value)} placeholder="🔍 Rechercher dans Drive..." onKeyDown={async(e)=>{if(e.key==="Enter"&&driveSearch.trim()){setDrivePanel(prev=>({...prev,loading:true}));const files=await gDriveSearch(driveSearch);setDrivePanel(prev=>({...prev,files,loading:false}))}}} style={{flex:1,padding:"5px 10px",border:"1px solid #E2E8F0",borderRadius:6,fontSize:11,fontFamily:font,outline:"none"}}/>
+        <button onClick={async()=>{if(driveSearch.trim()){setDrivePanel(prev=>({...prev,loading:true}));const files=await gDriveSearch(driveSearch);setDrivePanel(prev=>({...prev,files,loading:false}))}}} style={{padding:"5px 10px",border:"1px solid #E2E8F0",borderRadius:6,background:"#fff",fontSize:11,cursor:"pointer",fontFamily:font}}>Chercher</button>
+      </div>
+      {/* File list */}
+      {drivePanel.loading?<div style={{textAlign:"center",padding:12,color:"#999",fontSize:11}}>Chargement...</div>:
+      <div style={{maxHeight:200,overflowY:"auto",display:"grid",gap:2}}>
+        {(drivePanel.files||[]).map(f=><div key={f.id} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",background:"#fff",borderRadius:5,border:"1px solid #F0EFEC",cursor:"pointer"}} onClick={async()=>{
+          if(f.isFolder){
+            // Navigate into folder
+            setDrivePanel(prev=>({...prev,loading:true}));
+            const files=await gDriveBrowse(f.id);
+            setDrivePanel(prev=>({files,path:[...(prev.path||[]),{id:f.id,name:f.name}],loading:false}));
+          }else{
+            // Select this file/folder as the Drive link
+            const link=f.link||("https://drive.google.com/drive/folders/"+f.id);
+            try{
+              const pid=entry.url.replace("notion://","");
+              await fetch("/api/notion?action=update",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({page_id:pid,properties:{"userDefined:Lien Drive":link},schema:{"Lien Drive":{type:"url"}}})});
+              setSavedDriveLink(link);setDrivePanel(null);
+            }catch(e){alert("Erreur: "+e.message)}
+          }
+        }} onMouseOver={e=>e.currentTarget.style.background="#F0F9FF"} onMouseOut={e=>e.currentTarget.style.background="#fff"}>
+          <span style={{fontSize:14}}>{f.isFolder?"📁":"📄"}</span>
+          <span style={{fontSize:12,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontWeight:f.isFolder?600:400}}>{f.name}</span>
+          {f.isFolder?<span style={{fontSize:10,color:"#999"}}>→</span>:
+          <button onClick={(e)=>{e.stopPropagation();
+            const link=f.link||("https://drive.google.com/drive/folders/"+f.id);
+            const pid=entry.url.replace("notion://","");
+            fetch("/api/notion?action=update",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({page_id:pid,properties:{"userDefined:Lien Drive":link},schema:{"Lien Drive":{type:"url"}}})}).then(()=>{setSavedDriveLink(link);setDrivePanel(null)}).catch(err=>alert("Erreur: "+err.message));
+          }} style={{padding:"2px 8px",borderRadius:4,border:"1px solid #16A34A40",background:"#F0FDF4",fontSize:10,fontWeight:600,color:"#16A34A",cursor:"pointer",fontFamily:font}}>Lier</button>}
+        </div>)}
+        {(drivePanel.files||[]).length===0&&!drivePanel.loading&&<div style={{textAlign:"center",padding:12,color:"#999",fontSize:11}}>Dossier vide</div>}
+      </div>}
+      {/* Manual URL input */}
+      <div style={{display:"flex",gap:6,marginTop:8,alignItems:"center"}}>
+        <span style={{fontSize:10,color:"#999"}}>ou coller un lien :</span>
+        <input placeholder="https://drive.google.com/..." onKeyDown={async(e)=>{if(e.key==="Enter"&&e.target.value.startsWith("http")){const link=e.target.value;try{const pid=entry.url.replace("notion://","");await fetch("/api/notion?action=update",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({page_id:pid,properties:{"userDefined:Lien Drive":link},schema:{"Lien Drive":{type:"url"}}})});setSavedDriveLink(link);setDrivePanel(null)}catch(err){alert("Erreur: "+err.message)}}}} style={{flex:1,padding:"4px 8px",border:"1px solid #E2E8F0",borderRadius:5,fontSize:10,fontFamily:font,outline:"none"}}/>
+      </div>
     </div>}
     <div style={{padding:"18px 22px"}}>
       {relFields.map(([rn,rd])=>{const tDb=allDbs.find(d=>d.dsUrl===rd.dataSourceUrl);if(!tDb)return null;const items=resolveRel(entry[rn],tDb);const tInfo=Object.entries(tDb.schema).filter(([,d])=>d.type!=="title"&&d.type!=="relation"&&!READONLY.has(d.type));const icon=tDb.name.includes("Contact")?"👤":tDb.name.includes("Réunion")?"📅":tDb.name.includes("Livrable")?"📋":tDb.name.includes("Document")?"📄":tDb.name.includes("Facture")?"💶":tDb.name.includes("Jalon")?"🎯":tDb.name.includes("Projet")?"🚀":tDb.name.includes("Risque")?"⚠️":tDb.name.includes("Dossier")?"📁":"🔗";const rev=Object.entries(tDb.schema).find(([,d])=>d.type==="relation"&&d.dataSourceUrl===db.dsUrl)?.[0];
