@@ -107,6 +107,7 @@ export default async function handler(req, res) {
         tokenLength: t.length,
         testedDbId: testDb,
         dbTitle: d.title?.[0]?.plain_text || null,
+        properties: d.properties ? Object.keys(d.properties) : null,
         error: d.message || null
       });
     } catch (e) {
