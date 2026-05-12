@@ -71,6 +71,7 @@ function buildNotionProps(data, schema) {
     else if (s.type === 'rich_text' || s.type === 'text') props[key] = { rich_text: [{ text: { content: String(val) } }] };
     else if (s.type === 'number') props[key] = { number: parseFloat(val) || 0 };
     else if (s.type === 'select') props[key] = { select: { name: String(val) } };
+    else if (s.type === 'multi_select') props[key] = { multi_select: String(val).split(', ').filter(Boolean).map(v => ({ name: v.trim() })) };
     else if (s.type === 'status') props[key] = { status: { name: String(val) } };
     else if (s.type === 'url') props[key] = { url: String(val) };
     else if (s.type === 'email') props[key] = { email: String(val) };
