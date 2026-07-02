@@ -8,6 +8,7 @@ const USERS=[
   {id:"294d872b-594c-8191-920a-000216bb2c0c",name:"Lucile Brun",short:"Lucile",color:"#9B59B6",email:"l.brun@pdj-conseil.fr"},
   {id:"7e764ade-b9b3-4cfe-a5ca-aadc7816660d",name:"Paul Froment",short:"Paul",color:"#2ECC71",email:"p.froment@pdj-conseil.fr"},
   {id:"c-froment",name:"Christian Froment",short:"Christian",color:"#E67E22",email:"c.froment@pdj-conseil.fr",role:"Dir. Financier"},
+  {id:"b-thonnard",name:"Baptiste Thonnard",short:"Baptiste",color:"#1ABC9C",email:"b.thonnard@pdj-conseil.fr",role:"Sécurité & Web Dev"},
 ];
 const EMAIL_TO_USER=Object.fromEntries(USERS.map(u=>[u.email,u]));
 const CFG=[
